@@ -2,13 +2,16 @@
 name = "framealloc"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["YelenaTor"]
 description = "Intent-aware, thread-smart memory allocation for Rust game engines"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/yourusername/framealloc"
+repository = "https://github.com/YelenaTor/framealloc"
+homepage = "https://github.com/YelenaTor/framealloc"
+documentation = "https://docs.rs/framealloc"
 keywords = ["allocator", "game-engine", "memory", "bevy", "arena"]
-categories = ["memory-management", "game-development", "no-std"]
+categories = ["memory-management", "game-development"]
 readme = "README.md"
+rust-version = "1.70"
 
 [features]
 default = []
