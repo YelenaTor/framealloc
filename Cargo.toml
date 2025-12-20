@@ -1,0 +1,56 @@
+[package]
+name = "framealloc"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "Intent-aware, thread-smart memory allocation for Rust game engines"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/framealloc"
+keywords = ["allocator", "game-engine", "memory", "bevy", "arena"]
+categories = ["memory-management", "game-development", "no-std"]
+readme = "README.md"
+
+[features]
+default = []
+
+# Use parking_lot for faster mutexes
+parking_lot = ["dep:parking_lot"]
+
+# Bevy integration
+bevy = ["dep:bevy_ecs", "dep:bevy_app"]
+
+# Debug features: memory poisoning, allocation backtraces
+debug = ["dep:backtrace"]
+
+# Tracy profiler integration
+tracy = ["dep:tracy-client"]
+
+# Nightly: std::alloc::Allocator trait implementations
+nightly = []
+
+# Enhanced runtime diagnostics (allocator-aware error messages)
+diagnostics = []
+
+[dependencies]
+# Lock-free concurrent queue for deferred frees
+crossbeam-queue = "0.3"
+
+# Optional: faster mutexes
+parking_lot = { version = "0.12", optional = true }
+
+# Optional: Bevy integration (using minimal deps)
+bevy_ecs = { version = "0.14", optional = true, default-features = false }
+bevy_app = { version = "0.14", optional = true, default-features = false }
+
+# Optional: debug backtraces
+backtrace = { version = "0.3", optional = true }
+
+# Optional: Tracy profiler
+tracy-client = { version = "0.17", optional = true }
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "allocator"
+harness = false

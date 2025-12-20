@@ -1,0 +1,82 @@
+//! # framealloc
+//!
+//! Intent-aware, thread-smart memory allocation for Rust game engines.
+//!
+//! ## Features
+//!
+//! - Frame-based arenas (bump allocation, reset per frame)
+//! - Thread-local fast paths (zero locks in common case)
+//! - Automatic ST → MT scaling
+//! - Optional Bevy integration
+//! - Allocation diagnostics & budgeting
+//! - Streaming allocator for large assets
+//! - Handle-based allocation with relocation support
+//! - Allocation groups for bulk freeing
+//! - Safe wrapper types (FrameBox, PoolBox, HeapBox)
+//! - std::alloc::Allocator trait implementations
+//!
+//! ## Quick Start
+//!
+//! ```rust,no_run
+//! use framealloc::{SmartAlloc, AllocConfig};
+//!
+//! let alloc = SmartAlloc::new(AllocConfig::default());
+//!
+//! // Game loop
+//! alloc.begin_frame();
+//! let temp = alloc.frame_alloc::<[f32; 256]>();
+//! // ... use temp ...
+//! alloc.end_frame();
+//! ```
+
+pub mod api;
+pub mod diagnostics;
+pub mod handles;
+pub mod streaming;
+
+mod allocators;
+mod core;
+mod sync;
+mod util;
+
+#[cfg(feature = "bevy")]
+pub mod bevy;
+
+#[cfg(feature = "debug")]
+pub mod debug;
+
+// Re-export public API at crate root for convenience
+pub use api::alloc::SmartAlloc;
+pub use api::config::AllocConfig;
+pub use api::scope::{FrameGuard, FrameScope};
+pub use api::stats::AllocStats;
+pub use api::tag::{AllocationIntent, AllocationTag};
+
+// Safe wrapper types
+pub use api::wrappers::{FrameBox, FrameSlice, PoolBox, HeapBox};
+
+// Allocator trait implementations (nightly only)
+#[cfg(feature = "nightly")]
+pub use api::allocator_impl::{FrameAllocator, PoolAllocator, HeapAllocator};
+
+// Allocation groups
+pub use api::groups::{GroupAllocator, GroupId, GroupHandle, GroupStats};
+
+// Handle-based allocation
+pub use allocators::handles::{Handle, HandleAllocator, HandleAllocatorStats, PinGuard};
+
+// Streaming allocation
+pub use allocators::streaming::{StreamId, StreamPriority, StreamState, StreamingAllocator, StreamingStats};
+
+// Budgets
+pub use core::budget::{BudgetEvent, BudgetManager, BudgetStatus, TagBudget};
+
+// Diagnostics - UI hooks
+pub use diagnostics::{DiagnosticsHooks, DiagnosticsEvent, SharedDiagnostics, MemoryGraphData};
+pub use diagnostics::{ProfilerHooks, ProfilerZone, MemoryEvent};
+pub use diagnostics::{AllocatorSnapshot, SnapshotHistory};
+
+// Diagnostics - Core types and predefined codes
+pub use diagnostics::{Diagnostic, DiagnosticKind};
+pub use diagnostics::{StrictMode, set_strict_mode, StrictModeGuard};
+pub use diagnostics::{FA001, FA002, FA003, FA101, FA102, FA201, FA202, FA301, FA302, FA401, FA402, FA901};
