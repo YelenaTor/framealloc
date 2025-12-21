@@ -21,13 +21,11 @@
 
 ---
 
-> **v0.5.1 Note:** This release unifies versioning between `framealloc` and `cargo-fa`. No runtime code changes — the allocator APIs are identical to v0.4.0. Version bump reflects tooling maturity and documentation overhaul. See [TECHNICAL.md](TECHNICAL.md#v051-unified-versioning--cargo-fa-enhancements) for details.
-
----
-
 ## Overview
 
-**framealloc** is a memory allocation library designed for game engines and real-time applications where predictable performance matters. It combines multiple allocation strategies under a unified API that routes allocations based on expressed intent.
+**framealloc** is a deterministic, frame-based memory allocation library for Rust game engines and real-time applications. It provides predictable performance through explicit lifetimes and scales seamlessly from single-threaded to multi-threaded workloads.
+
+> **Not** a general-purpose allocator replacement. Purpose-built for game engines, renderers, simulations, and real-time systems.
 
 ### Key Capabilities
 
@@ -35,9 +33,9 @@
 |------------|-------------|
 | **Frame Arenas** | Lock-free bump allocation, reset per frame |
 | **Object Pools** | O(1) reuse for small, frequent allocations |
+| **Thread Coordination** | Explicit transfers, barriers, per-thread budgets |
 | **Static Analysis** | `cargo fa` catches memory mistakes at build time |
 | **Runtime Diagnostics** | Behavior filter detects pattern violations |
-| **Thread Scaling** | Automatic single-thread → multi-thread adaptation |
 
 ---
 
@@ -76,6 +74,23 @@ let navmesh = alloc.frame_retained::<NavMesh>(RetentionPolicy::PromoteToPool);
 
 // Get promoted allocations at frame end
 let promotions = alloc.end_frame_with_promotions();
+```
+
+### Thread Coordination (v0.6.0)
+
+```rust
+// Explicit cross-thread transfers
+let handle = alloc.frame_box_for_transfer(data);
+worker_channel.send(handle);
+// Receiver: let data = handle.receive();
+
+// Frame barriers for deterministic sync
+let barrier = FrameBarrier::new(3);
+barrier.signal_frame_complete();
+barrier.wait_all();
+
+// Per-thread budgets
+alloc.set_thread_frame_budget(megabytes(8));
 ```
 
 ### Runtime Behavior Filter
@@ -142,7 +157,7 @@ cargo fa init                       # Generate .fa.toml
 
 | Range | Category | Examples |
 |-------|----------|----------|
-| FA2xx | Threading | Cross-thread frame access |
+| FA2xx | Threading | Cross-thread access, barrier mismatch, budget missing |
 | FA3xx | Budgets | Unbounded allocation loops |
 | FA6xx | Lifetime | Frame escape, hot loops, missing boundaries |
 | FA7xx | Async | Allocation across await, closure capture |

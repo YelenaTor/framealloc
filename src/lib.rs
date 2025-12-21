@@ -115,3 +115,16 @@ pub use diagnostics::behavior::{
     FA501, FA502, FA510, FA520, FA530,
 };
 pub use diagnostics::{DiagnosticCode, DiagnosticLevel};
+
+// v0.6.0: Thread coordination and observability
+pub use api::transfer::{TransferHandle, TransferId, TransferState, TransferStats, TransferRegistry};
+pub use api::barrier::{FrameBarrier, FrameBarrierBuilder, BarrierStats};
+pub use api::lifecycle::{FrameEvent, LifecycleManager, LifecycleSummary, ThreadFrameStats, FrameLifecycleGuard};
+pub use api::thread_budget::{
+    ThreadBudgetManager, ThreadBudgetConfig, ThreadBudgetState, ThreadBudgetStats,
+    BudgetExceededPolicy, BudgetCheckResult,
+};
+pub use api::deferred_control::{
+    DeferredProcessing, DeferredConfig, DeferredController, DeferredStats,
+    QueueFullPolicy, QueueResult, DeferredConfigBuilder,
+};

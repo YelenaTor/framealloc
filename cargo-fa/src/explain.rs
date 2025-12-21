@@ -329,30 +329,165 @@ alloc.with_tag("physics", |a| {  // Correct spelling
             name: "cross-thread-frame",
             category: "Threading",
             severity: "error",
-            summary: "Frame allocation in spawned thread context",
+            summary: "Cross-thread frame access without explicit transfer",
             description: r#"
 Frame allocations are thread-local. Each thread has its own frame arena.
-When you spawn a new thread, it gets a fresh arena - it cannot access
-frame allocations from the parent thread.
+When you pass frame data to another thread without using TransferHandle,
+you risk undefined behavior.
 
-This diagnostic catches patterns where frame data appears to be
-passed to spawned threads, which would cause undefined behavior.
+v0.6.0 introduces explicit transfers via TransferHandle. Use it to
+declare cross-thread intent and make the cost visible.
 "#,
             example_bad: r#"
 let data = alloc.frame_box(compute());
 
-std::thread::spawn(move || {  // FA201: frame data to new thread
+std::thread::spawn(move || {  // FA201: implicit cross-thread
     process(data);  // Wrong arena!
 });
 "#,
             example_good: r#"
-let data = alloc.heap_box(compute());
+// Use explicit transfer
+let handle = alloc.frame_box_for_transfer(compute());
 
 std::thread::spawn(move || {
-    process(data);  // Heap is thread-safe
+    let data = handle.receive();  // Explicit acceptance
+    process(data);
 });
 "#,
-            see_also: &["FA703"],
+            see_also: &["FA202", "FA703"],
+        }),
+        
+        "FA202" => Some(Explanation {
+            code: "FA202",
+            name: "barrier-mismatch",
+            category: "Threading",
+            severity: "warning",
+            summary: "Thread not in FrameBarrier but shares frame boundary",
+            description: r#"
+When multiple threads share frame boundaries (calling end_frame),
+they should be coordinated via FrameBarrier to prevent races.
+
+This warning triggers when a thread calls end_frame() but isn't
+registered with the FrameBarrier that other threads are using.
+"#,
+            example_bad: r#"
+let barrier = FrameBarrier::new(2);  // Main + worker1
+
+// worker2 not in barrier but calls end_frame
+worker2.spawn(|| {
+    alloc.end_frame();  // FA202: not coordinated
+});
+"#,
+            example_good: r#"
+let barrier = FrameBarrier::new(3);  // Main + worker1 + worker2
+
+// All threads coordinate
+barrier.signal_frame_complete();
+barrier.wait_all();
+alloc.end_frame();
+"#,
+            see_also: &["FA201", "FA205"],
+        }),
+        
+        "FA203" => Some(Explanation {
+            code: "FA203",
+            name: "budget-not-configured",
+            category: "Threading",
+            severity: "hint",
+            summary: "Thread allocates without explicit budget configuration",
+            description: r#"
+Per-thread budgets help prevent unexpected memory growth and make
+memory usage predictable. This hint suggests configuring explicit
+budgets for threads that perform allocations.
+
+Not always an error, but worth considering for production code.
+"#,
+            example_bad: r#"
+// Thread allocates without budget
+std::thread::spawn(|| {
+    loop {
+        let data = alloc.frame_alloc();  // FA203: no budget
+    }
+});
+"#,
+            example_good: r#"
+// Configure budget before spawning
+alloc.set_thread_frame_budget(thread_id, megabytes(8));
+
+std::thread::spawn(|| {
+    loop {
+        if alloc.frame_remaining() > size {
+            let data = alloc.frame_alloc();
+        }
+    }
+});
+"#,
+            see_also: &["FA204"],
+        }),
+        
+        "FA204" => Some(Explanation {
+            code: "FA204",
+            name: "deferred-overflow-risk",
+            category: "Threading",
+            severity: "warning",
+            summary: "Pattern may overflow deferred free queue",
+            description: r#"
+Cross-thread frees go through a deferred queue. If this queue grows
+unbounded, it can cause memory pressure or latency spikes when drained.
+
+Configure a bounded queue with DeferredConfig to prevent this.
+"#,
+            example_bad: r#"
+// High-frequency cross-thread frees
+for _ in 0..10000 {
+    let data = alloc.frame_box(x);
+    other_thread.send(data);  // FA204: unbounded queue growth
+}
+"#,
+            example_good: r#"
+// Configure bounded queue
+let config = DeferredConfig::bounded(1024);
+alloc.set_deferred_config(config);
+
+// Or use incremental processing
+let config = DeferredConfig::incremental(16);
+"#,
+            see_also: &["FA203"],
+        }),
+        
+        "FA205" => Some(Explanation {
+            code: "FA205",
+            name: "frame-sync-race",
+            category: "Threading",
+            severity: "error",
+            summary: "end_frame() called without barrier synchronization",
+            description: r#"
+In multi-threaded contexts, calling end_frame() without barrier
+synchronization can cause races where one thread resets frame memory
+while another is still using it.
+
+Use FrameBarrier to coordinate frame boundaries across threads.
+"#,
+            example_bad: r#"
+// Thread 1
+alloc.end_frame();  // FA205: not synchronized
+
+// Thread 2 (concurrent)
+let data = alloc.frame_alloc();  // May use reset memory!
+"#,
+            example_good: r#"
+let barrier = FrameBarrier::new(2);
+
+// Thread 1
+barrier.signal_frame_complete();
+barrier.wait_all();
+alloc.end_frame();
+
+// Thread 2
+barrier.signal_frame_complete();
+// Will wait until frame is safe
+"#,
+            see_also: &["FA202"],
         }),
         
         "FA301" => Some(Explanation {
@@ -449,7 +584,11 @@ pub fn print_explanation(explanation: &Explanation) {
 /// List all diagnostic codes
 pub fn list_all_codes(category_filter: Option<&str>) {
     let codes = [
-        ("FA201", "Threading", "Cross-thread frame access"),
+        ("FA201", "Threading", "Cross-thread frame access without transfer"),
+        ("FA202", "Threading", "Thread not in FrameBarrier"),
+        ("FA203", "Threading", "Thread budget not configured"),
+        ("FA204", "Threading", "Deferred queue overflow risk"),
+        ("FA205", "Threading", "Frame sync race (end_frame without barrier)"),
         ("FA301", "Budget", "Unbounded allocation in loop"),
         ("FA601", "Lifetime", "Frame allocation escapes scope"),
         ("FA602", "Lifetime", "Allocation in hot loop"),

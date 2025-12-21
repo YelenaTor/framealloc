@@ -18,3 +18,10 @@ pub mod stats;
 pub mod tag;
 pub mod tagged;
 pub mod wrappers;
+
+// v0.6.0: Thread coordination and observability
+pub mod barrier;
+pub mod deferred_control;
+pub mod lifecycle;
+pub mod thread_budget;
+pub mod transfer;

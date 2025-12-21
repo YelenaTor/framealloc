@@ -114,6 +114,118 @@ impl std::fmt::Display for DiagnosticCode {
 }
 
 // =============================================================================
+// Predefined diagnostic codes (FA2xx - Threading) - v0.6.0
+// =============================================================================
+
+/// FA201: Cross-thread frame access without transfer
+pub fn fa201(location: Location, context: &str) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA201"),
+        severity: Severity::Error,
+        message: "frame allocation used across thread boundary without explicit transfer".to_string(),
+        location,
+        notes: vec![
+            format!("detected in context: {}", context),
+            "frame allocations are thread-local and cannot be safely shared".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "use frame_box_for_transfer() for explicit cross-thread handoff".to_string(),
+            replacement: None,
+            applicability: Applicability::MaybeIncorrect,
+        }),
+        related: vec![],
+    }
+}
+
+/// FA202: Frame barrier mismatch
+pub fn fa202(location: Location) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA202"),
+        severity: Severity::Warning,
+        message: "thread not registered with FrameBarrier but shares frame boundary".to_string(),
+        location,
+        notes: vec![
+            "threads sharing frame boundaries should be synchronized via FrameBarrier".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "register thread with FrameBarrier or ensure proper synchronization".to_string(),
+            replacement: None,
+            applicability: Applicability::HasPlaceholders,
+        }),
+        related: vec![],
+    }
+}
+
+/// FA203: Thread budget not configured
+pub fn fa203(location: Location) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA203"),
+        severity: Severity::Hint,
+        message: "thread performs allocations without explicit budget configuration".to_string(),
+        location,
+        notes: vec![
+            "explicit budgets help prevent unexpected memory growth".to_string(),
+            "consider setting per-thread frame budgets".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "configure thread budget with ThreadBudgetManager".to_string(),
+            replacement: None,
+            applicability: Applicability::Unspecified,
+        }),
+        related: vec![],
+    }
+}
+
+/// FA204: Deferred queue overflow risk
+pub fn fa204(location: Location, pattern: &str) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA204"),
+        severity: Severity::Warning,
+        message: "pattern may cause deferred free queue overflow".to_string(),
+        location,
+        notes: vec![
+            format!("detected pattern: {}", pattern),
+            "unbounded cross-thread frees can cause memory pressure".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "configure bounded deferred queue with DeferredConfig::bounded()".to_string(),
+            replacement: None,
+            applicability: Applicability::HasPlaceholders,
+        }),
+        related: vec![],
+    }
+}
+
+/// FA205: Frame sync race potential
+pub fn fa205(location: Location, barrier_location: Option<Location>) -> Diagnostic {
+    let mut diag = Diagnostic {
+        code: DiagnosticCode::new("FA205"),
+        severity: Severity::Error,
+        message: "end_frame() called without barrier synchronization in multi-threaded context".to_string(),
+        location,
+        notes: vec![
+            "concurrent end_frame() calls can cause undefined behavior".to_string(),
+            "use FrameBarrier to synchronize frame boundaries".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "coordinate frame boundaries with FrameBarrier::wait_all()".to_string(),
+            replacement: None,
+            applicability: Applicability::HasPlaceholders,
+        }),
+        related: vec![],
+    };
+    
+    if let Some(barrier_loc) = barrier_location {
+        diag.related.push(RelatedLocation {
+            location: barrier_loc,
+            message: "barrier defined here".to_string(),
+        });
+    }
+    
+    diag
+}
+
+// =============================================================================
 // Predefined diagnostic codes (FA6xx - Lifetime/Escape)
 // =============================================================================
 

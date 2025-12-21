@@ -744,6 +744,180 @@ fn clear_retained(&self)
 
 ---
 
+## v0.6.0: Explicit Thread Coordination & Frame Observability
+
+### Design Philosophy
+
+v0.6.0 makes the existing cross-thread behavior **explicit** and **controllable** while staying true to framealloc's core principles:
+
+| Principle | How v0.6.0 Honors It |
+|-----------|---------------------|
+| **Deterministic** | Bounded queues, explicit barriers, predictable costs |
+| **Frame-based** | All features center on frame lifecycle |
+| **Explicit** | TransferHandle, budget policies, manual processing |
+| **Predictable** | No hidden costs, configurable overhead |
+| **Scales ST→MT** | Zero cost when features unused |
+
+### TransferHandle: Explicit Cross-Thread Transfers
+
+Previously, cross-thread allocations were handled silently via the deferred free queue. v0.6.0 adds explicit declaration of transfer intent:
+
+```rust
+use framealloc::{SmartAlloc, TransferHandle};
+
+// Allocate with declared transfer intent
+let handle: TransferHandle<PhysicsResult> = alloc.frame_box_for_transfer(result);
+
+// Send to worker thread - transfer is explicit
+worker_channel.send(handle);
+
+// On worker thread: explicitly accept ownership
+let data = handle.receive();
+```
+
+**Key properties:**
+- Transfer intent is visible in the type system
+- Ownership transfer is explicit, not implicit
+- Dropped handles without receiving trigger warnings (debug mode)
+
+### FrameBarrier: Deterministic Multi-Thread Sync
+
+Coordinate frame boundaries across threads without races:
+
+```rust
+use framealloc::FrameBarrier;
+use std::sync::Arc;
+
+// Create barrier for main + 2 workers
+let barrier = FrameBarrier::new(3);
+
+// Each thread signals when frame work complete
+barrier.signal_frame_complete();
+
+// Coordinator waits for all, then resets
+barrier.wait_all();
+alloc.end_frame();
+barrier.reset();
+```
+
+**Builder pattern:**
+```rust
+let barrier = FrameBarrierBuilder::new()
+    .with_thread("main")
+    .with_thread("physics")
+    .with_thread("rendering")
+    .build();
+```
+
+### Per-Thread Frame Budgets
+
+Explicit per-thread memory limits with deterministic exceeded behavior:
+
+```rust
+use framealloc::{ThreadBudgetConfig, BudgetExceededPolicy};
+
+// Configure per-thread limits
+let config = ThreadBudgetConfig {
+    frame_budget: 8 * 1024 * 1024,  // 8 MB
+    frame_exceeded_policy: BudgetExceededPolicy::Fail,
+    warning_threshold: 80,  // Warn at 80%
+    ..Default::default()
+};
+
+alloc.set_thread_budget_config(thread_id, config);
+
+// Check before large allocation
+if alloc.frame_remaining() < large_size {
+    // Handle gracefully
+}
+```
+
+**Policies:**
+| Policy | Behavior |
+|--------|----------|
+| `Fail` | Return null/error |
+| `Warn` | Log warning, allow |
+| `Allow` | Silent allow |
+| `Promote` | Attempt promotion to larger allocator |
+
+### Deferred Processing Control
+
+Control when and how cross-thread frees are processed:
+
+```rust
+use framealloc::{DeferredConfig, DeferredProcessing, QueueFullPolicy};
+
+// Bounded queue with explicit capacity
+let config = DeferredConfig::bounded(1024)
+    .full_policy(QueueFullPolicy::ProcessImmediately);
+
+// Incremental processing (amortized cost per alloc)
+let config = DeferredConfig::incremental(16);
+
+// Full manual control
+alloc.set_deferred_processing(DeferredProcessing::Explicit);
+alloc.process_deferred_frees(64);  // Process up to 64
+```
+
+**Queue policies:**
+| Policy | Behavior |
+|--------|----------|
+| `ProcessImmediately` | Block and drain |
+| `DropOldest` | Lossy but non-blocking |
+| `Fail` | Caller handles |
+| `Grow` | Unbounded (legacy) |
+
+### Frame Lifecycle Events
+
+Opt-in observability with zero overhead when disabled:
+
+```rust
+use framealloc::{FrameEvent, LifecycleManager};
+
+alloc.enable_lifecycle_tracking();
+
+alloc.on_frame_event(|event| match event {
+    FrameEvent::FrameBegin { thread_id, frame_number, .. } => {
+        println!("Frame {} started on {:?}", frame_number, thread_id);
+    }
+    FrameEvent::CrossThreadFreeQueued { from, to, size } => {
+        println!("Cross-thread: {:?} -> {:?}, {} bytes", from, to, size);
+    }
+    FrameEvent::FrameEnd { duration_us, peak_memory, .. } => {
+        println!("Frame took {}μs, peak {} bytes", duration_us, peak_memory);
+    }
+    _ => {}
+});
+
+// Get per-thread statistics
+let stats = alloc.thread_frame_stats(thread_id);
+println!("Frames: {}, Peak: {} bytes", stats.frames_completed, stats.peak_memory);
+```
+
+### New Diagnostic Codes (FA2xx)
+
+| Code | Severity | Description |
+|------|----------|-------------|
+| FA201 | Error | Cross-thread frame access without explicit transfer |
+| FA202 | Warning | Thread not in FrameBarrier but shares frame boundary |
+| FA203 | Hint | Thread allocates without budget configured |
+| FA204 | Warning | Pattern may overflow deferred queue |
+| FA205 | Error | `end_frame()` called without barrier synchronization |
+
+### Performance Characteristics
+
+When disabled (default): **Zero overhead**
+
+When enabled:
+| Feature | Overhead |
+|---------|----------|
+| TransferHandle | ~10ns per transfer |
+| FrameBarrier | ~50ns per signal |
+| Budget tracking | ~5ns per allocation |
+| Lifecycle events | ~100ns per event (callback overhead) |
+
+---
+
 ## v0.5.1: Unified Versioning & cargo-fa Enhancements
 
 ### Version Note

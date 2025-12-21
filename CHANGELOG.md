@@ -5,6 +5,117 @@ All notable changes to `framealloc` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-12-21
+
+### Added
+
+#### Explicit Thread Coordination
+
+**TransferHandle** - Declare cross-thread allocation intent explicitly:
+
+```rust
+// Allocate with transfer intent
+let handle = alloc.frame_box_for_transfer(physics_result);
+
+// Explicit handoff - visible cost, clear ownership
+worker_channel.send(handle);
+
+// Receiver explicitly accepts
+let data = handle.receive();
+```
+
+**FrameBarrier** - Deterministic multi-thread frame synchronization:
+
+```rust
+// Create barrier for coordinated threads
+let barrier = FrameBarrier::new(3);
+
+// Each thread signals completion
+barrier.signal_frame_complete();
+
+// Coordinator waits, then resets
+barrier.wait_all();
+alloc.end_frame();
+```
+
+#### Per-Thread Frame Budgets
+
+Explicit memory limits with deterministic exceeded behavior:
+
+```rust
+// Configure per-thread limits
+alloc.set_thread_frame_budget(megabytes(8));
+alloc.on_budget_exceeded(BudgetExceededPolicy::Fail);
+
+// Check remaining budget
+if alloc.frame_remaining() < size {
+    // Handle gracefully
+}
+```
+
+#### Deferred Processing Control
+
+Explicit control over cross-thread free processing:
+
+```rust
+// Bounded queue prevents unbounded memory growth
+let config = DeferredConfig::bounded(1024)
+    .full_policy(QueueFullPolicy::ProcessImmediately);
+
+// Or incremental processing (amortized cost)
+let config = DeferredConfig::incremental(16); // Process 16 per alloc
+
+// Or full manual control
+alloc.set_deferred_processing(DeferredProcessing::Explicit);
+alloc.process_deferred_frees(max_count: 64);
+```
+
+#### Frame Lifecycle Events (Opt-in)
+
+Zero-overhead observability when enabled:
+
+```rust
+alloc.enable_lifecycle_tracking();
+
+alloc.on_frame_event(|event| match event {
+    FrameEvent::FrameBegin { thread_id, frame_number, .. } => { ... }
+    FrameEvent::CrossThreadFreeQueued { from, to, size } => { ... }
+    FrameEvent::FrameEnd { duration_us, peak_memory, .. } => { ... }
+});
+
+// Get per-thread statistics
+let stats = alloc.thread_frame_stats(thread_id);
+```
+
+#### New Threading Diagnostics (FA2xx)
+
+| Code | Severity | Description |
+|------|----------|-------------|
+| FA201 | Error | Cross-thread frame access without transfer |
+| FA202 | Warning | Thread not in FrameBarrier but shares boundary |
+| FA203 | Hint | Thread allocates without budget configured |
+| FA204 | Warning | Pattern may overflow deferred queue |
+| FA205 | Error | end_frame() without barrier sync |
+
+### Changed
+
+- **Deferred free queue** now supports bounded capacity with configurable overflow policy
+- **Check ordering** optimized: architecture → dirtymem → budgets → async → threading
+
+### Philosophy
+
+v0.6.0 stays true to framealloc's core principles:
+
+| Principle | How v0.6.0 Honors It |
+|-----------|---------------------|
+| **Deterministic** | Bounded queues, explicit barriers |
+| **Frame-based** | All features center on frame lifecycle |
+| **Explicit** | TransferHandle, budget policies, manual processing |
+| **Predictable** | No hidden costs, configurable overhead |
+| **Scales ST→MT** | Zero cost when features unused |
+
+---
+
 ## [0.5.1] - 2025-12-21
 
 ### Added
@@ -458,6 +569,7 @@ let id = streaming.reserve(size, StreamPriority::High)?;
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.6.0 | 2025-12-21 | Thread coordination, barriers, budgets, lifecycle events |
 | 0.5.1 | 2025-12-21 | Extended formats, filtering, subcommands |
 | 0.5.0 | 2025-12-21 | `cargo fa` static analysis tool |
 | 0.4.0 | 2025-12-21 | Memory behavior filter, async detection, build advisor |
