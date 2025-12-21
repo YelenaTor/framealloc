@@ -6,6 +6,9 @@ authors = ["YelenaTor"]
 description = "Static analysis tool for framealloc - detect memory intent violations before runtime"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/YelenaTor/framealloc"
+homepage = "https://github.com/YelenaTor/framealloc/tree/main/cargo-fa"
+documentation = "https://docs.rs/cargo-fa"
+readme = "README.md"
 keywords = ["allocator", "static-analysis", "linter", "game-engine", "memory"]
 categories = ["development-tools", "memory-management"]
 
