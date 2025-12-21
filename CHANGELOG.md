@@ -5,6 +5,120 @@ All notable changes to `framealloc` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2025-12-21
+
+### Added
+
+#### Extended Output Formats
+- **JUnit XML** (`--format junit`) - For test reporting systems
+- **Checkstyle XML** (`--format checkstyle`) - For Jenkins and legacy CI
+
+#### Filtering Options
+- `--deny <CODE>` - Treat specific lint as error
+- `--allow <CODE>` - Suppress specific lint
+- `--exclude <PATTERN>` - Exclude paths from analysis (glob)
+- `--fail-fast` - Stop on first error
+
+#### Subcommands
+- `cargo fa explain FA601` - Detailed explanation with examples
+- `cargo fa show src/file.rs` - Single file analysis
+- `cargo fa list` - List all diagnostic codes
+- `cargo fa init` - Generate `.fa.toml` configuration
+
+#### Optimized Check Ordering
+`--all` now runs checks in optimized order (fast checks first) for better fail-fast behavior.
+
+### Changed
+- Check execution order optimized for `--all` flag
+- Quiet mode for non-terminal output formats
+
+---
+
+## [0.5.0] - 2025-12-21
+
+### Added
+
+#### `cargo fa` - Static Analysis Tool
+
+A cargo subcommand that detects memory intent violations before runtime by analyzing source code.
+
+**Installation:**
+```bash
+cd cargo-fa && cargo install --path .
+```
+
+**Usage:**
+```bash
+# Check for dirty memory patterns
+cargo fa --dirtymem
+
+# Check async safety
+cargo fa --async-safety
+
+# Check threading issues
+cargo fa --threading
+
+# Run all checks
+cargo fa --all
+
+# Output for CI (GitHub Actions)
+cargo fa --all --format sarif
+```
+
+**Detected Issues:**
+
+| Code | Category | Description |
+|------|----------|-------------|
+| FA601 | Lifetime | Frame allocation escapes scope |
+| FA602 | Lifetime | Allocation in hot loop |
+| FA603 | Lifetime | Missing frame boundaries |
+| FA604 | Lifetime | Retention policy mismatch |
+| FA605 | Lifetime | Discard policy but stored beyond frame |
+| FA701 | Async | Frame allocation in async function |
+| FA702 | Async | Frame allocation crosses await point |
+| FA703 | Async | FrameBox captured by closure/task |
+| FA801 | Architecture | Tag mismatch |
+| FA802 | Architecture | Unknown tag |
+| FA803 | Architecture | Cross-module allocation |
+
+**Example Output:**
+```
+error[FA701]: frame allocation in async function
+  --> src/network.rs:45:13
+   |
+45 |             let data = alloc.frame_box(packet);
+   |                       ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: async functions may suspend across frame boundaries
+   = help: use pool_box() or heap_box() for data in async contexts
+   = see: https://docs.rs/framealloc/diagnostics#FA701
+```
+
+**Configuration (`.fa.toml`):**
+```toml
+[global]
+min_severity = "hint"
+deny_warnings = false
+
+[lints.levels]
+# FA602 = "allow"  # Disable loop allocation warnings
+
+[tags]
+known_tags = ["physics", "rendering", "ai"]
+warn_unknown_tags = true
+
+[thresholds]
+loop_allocation_limit = 100
+```
+
+**Design Principles:**
+- **Not clippy**: Domain-specific rules for frame allocation
+- **Actionable**: Every issue includes suggestions
+- **CI-ready**: SARIF output for GitHub Actions
+- **Configurable**: Per-lint levels, thresholds
+
+---
+
 ## [0.4.0] - 2025-12-21
 
 ### Added
@@ -344,6 +458,8 @@ let id = streaming.reserve(size, StreamPriority::High)?;
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.5.1 | 2025-12-21 | Extended formats, filtering, subcommands |
+| 0.5.0 | 2025-12-21 | `cargo fa` static analysis tool |
 | 0.4.0 | 2025-12-21 | Memory behavior filter, async detection, build advisor |
 | 0.3.0 | 2025-12-21 | Frame retention & promotion system |
 | 0.2.1 | 2025-12-21 | Thread safety fix for FrameVec/FrameMap (!Send/!Sync) |

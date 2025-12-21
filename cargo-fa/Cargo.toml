@@ -1,0 +1,42 @@
+[package]
+name = "cargo-fa"
+version = "0.5.1"
+edition = "2021"
+authors = ["YelenaTor"]
+description = "Static analysis tool for framealloc - detect memory intent violations before runtime"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/YelenaTor/framealloc"
+keywords = ["allocator", "static-analysis", "linter", "game-engine", "memory"]
+categories = ["development-tools", "memory-management"]
+
+[[bin]]
+name = "cargo-fa"
+path = "src/main.rs"
+
+[dependencies]
+# CLI argument parsing
+clap = { version = "4.4", features = ["derive"] }
+
+# Rust source parsing
+syn = { version = "2.0", features = ["full", "parsing", "visit"] }
+quote = "1.0"
+proc-macro2 = { version = "1.0", features = ["span-locations"] }
+
+# File system traversal
+walkdir = "2.4"
+glob = "0.3"
+
+# Output formatting
+colored = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Configuration
+toml = "0.8"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+[dev-dependencies]
+tempfile = "3.8"

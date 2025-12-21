@@ -1,55 +1,173 @@
-# framealloc
+<p align="center">
+  <h1 align="center">framealloc</h1>
+  <p align="center">
+    <strong>Intent-driven memory allocation for high-performance Rust applications</strong>
+  </p>
+</p>
 
-**Intent-aware, thread-smart memory allocation for Rust game engines.**
+<p align="center">
+  <a href="https://crates.io/crates/framealloc"><img src="https://img.shields.io/crates/v/framealloc.svg?style=flat-square" alt="Crates.io"></a>
+  <a href="https://docs.rs/framealloc"><img src="https://img.shields.io/docsrs/framealloc?style=flat-square" alt="Documentation"></a>
+  <a href="#license"><img src="https://img.shields.io/crates/l/framealloc?style=flat-square" alt="License"></a>
+  <a href="https://github.com/YelenaTor/framealloc/actions"><img src="https://img.shields.io/github/actions/workflow/status/YelenaTor/framealloc/ci.yml?style=flat-square" alt="CI"></a>
+</p>
 
-[![Crates.io](https://img.shields.io/crates/v/framealloc.svg)](https://crates.io/crates/framealloc)
-[![Documentation](https://docs.rs/framealloc/badge.svg)](https://docs.rs/framealloc)
-[![License](https://img.shields.io/crates/l/framealloc.svg)](LICENSE)
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#static-analysis">Static Analysis</a> •
+  <a href="#documentation">Documentation</a>
+</p>
 
-- Frame-based arenas (bump allocation, reset per frame)
-- Thread-local fast paths (zero locks in common case)
-- Automatic ST → MT scaling (no mode switching)
-- Optional Bevy integration
-- Allocation diagnostics & budgeting
+---
 
-## Why?
+## Overview
 
-Game engines need **predictable memory behavior**. `framealloc` makes allocation intent explicit — and fast.
+**framealloc** is a memory allocation library designed for game engines and real-time applications where predictable performance matters. It combines multiple allocation strategies under a unified API that routes allocations based on expressed intent.
 
-Most engine allocations fall into predictable categories:
-- **Frame-temporary**: Lives for one frame, then discarded
-- **Small objects**: Pooled for reuse
-- **Large/persistent**: Traditional heap
+### Key Capabilities
 
-By expressing intent, `framealloc` routes allocations to the optimal path automatically.
+| Capability | Description |
+|------------|-------------|
+| **Frame Arenas** | Lock-free bump allocation, reset per frame |
+| **Object Pools** | O(1) reuse for small, frequent allocations |
+| **Static Analysis** | `cargo fa` catches memory mistakes at build time |
+| **Runtime Diagnostics** | Behavior filter detects pattern violations |
+| **Thread Scaling** | Automatic single-thread → multi-thread adaptation |
+
+---
+
+## Features
+
+### Core Allocation
+
+```rust
+use framealloc::{SmartAlloc, AllocConfig};
+
+let alloc = SmartAlloc::new(AllocConfig::default());
+
+loop {
+    alloc.begin_frame();
+    
+    // Frame allocation — bump pointer, no locks
+    let scratch = alloc.frame_alloc::<[f32; 1024]>();
+    
+    // Pool allocation — O(1) from free list
+    let entity = alloc.pool_alloc::<EntityData>();
+    
+    // Tagged allocation — attribute to subsystem
+    alloc.with_tag("physics", |a| {
+        let contacts = a.frame_vec::<Contact>();
+    });
+    
+    alloc.end_frame(); // Frame memory released
+}
+```
+
+### Frame Retention & Promotion
+
+```rust
+// Keep frame data beyond frame boundary
+let navmesh = alloc.frame_retained::<NavMesh>(RetentionPolicy::PromoteToPool);
+
+// Get promoted allocations at frame end
+let promotions = alloc.end_frame_with_promotions();
+```
+
+### Runtime Behavior Filter
+
+```rust
+// Opt-in runtime detection of allocation pattern issues
+alloc.enable_behavior_filter();
+
+// After running...
+let report = alloc.behavior_report();
+for issue in &report.issues {
+    eprintln!("[{}] {}", issue.code, issue.message);
+}
+```
+
+---
+
+## Static Analysis
+
+**cargo-fa** is a companion tool that detects memory intent violations before runtime.
+
+### Installation
+
+```bash
+cargo install --path cargo-fa
+```
+
+### Usage
+
+```bash
+# Check specific categories
+cargo fa --dirtymem       # Frame escape, hot loop allocations
+cargo fa --async-safety   # Async/await boundary issues
+cargo fa --threading      # Cross-thread frame access
+cargo fa --architecture   # Tag mismatches, module boundaries
+
+# Run all checks
+cargo fa --all
+
+# CI integration
+cargo fa --all --format sarif       # GitHub Actions
+cargo fa --all --format junit       # Test reporters
+cargo fa --all --format checkstyle  # Jenkins
+```
+
+### Filtering
+
+```bash
+cargo fa --all --deny FA701         # Treat as error
+cargo fa --all --allow FA602        # Suppress
+cargo fa --all --exclude "**/test*" # Skip paths
+```
+
+### Subcommands
+
+```bash
+cargo fa explain FA601              # Detailed explanation
+cargo fa show src/physics.rs        # Single file analysis
+cargo fa list                       # All diagnostic codes
+cargo fa init                       # Generate .fa.toml
+```
+
+### Diagnostic Categories
+
+| Range | Category | Examples |
+|-------|----------|----------|
+| FA2xx | Threading | Cross-thread frame access |
+| FA3xx | Budgets | Unbounded allocation loops |
+| FA6xx | Lifetime | Frame escape, hot loops, missing boundaries |
+| FA7xx | Async | Allocation across await, closure capture |
+| FA8xx | Architecture | Tag mismatch, unknown tags |
+
+---
 
 ## Quick Start
+
+### Basic Usage
 
 ```rust
 use framealloc::{SmartAlloc, AllocConfig};
 
 fn main() {
-    // Create allocator with default config
     let alloc = SmartAlloc::new(AllocConfig::default());
 
-    // Game loop
     loop {
         alloc.begin_frame();
-
-        // Frame-scoped allocation (bump allocator, ultra-fast)
-        let temp_buffer = alloc.frame_alloc::<[f32; 1024]>();
-
-        // Small object from pool
-        let entity_data = alloc.pool_alloc::<EntityData>();
-
-        // ... game logic ...
-
-        alloc.end_frame(); // Resets frame arena
+        
+        // Your frame logic here
+        let temp = alloc.frame_alloc::<TempData>();
+        
+        alloc.end_frame();
     }
 }
 ```
 
-## Bevy Integration
+### Bevy Integration
 
 ```rust
 use bevy::prelude::*;
@@ -62,126 +180,56 @@ fn main() {
         .run();
 }
 
-fn my_system(alloc: Res<framealloc::bevy::AllocResource>) {
-    // Frame allocation automatically reset each frame
-    let temp = alloc.frame_alloc::<TempData>();
+fn physics_system(alloc: Res<framealloc::bevy::AllocResource>) {
+    let contacts = alloc.frame_vec::<Contact>();
+    // Automatically reset each frame
 }
 ```
 
-## v0.4.0: Memory Behavior Filter
-
-```rust
-// Enable behavior tracking
-alloc.enable_behavior_filter();
-
-// Run your game loop...
-for _ in 0..1000 {
-    alloc.begin_frame();
-    alloc.with_tag("physics", |a| { /* allocations */ });
-    alloc.end_frame();
-}
-
-// Check for issues
-let report = alloc.behavior_report();
-for issue in &report.issues {
-    eprintln!("{}", issue);
-}
-// [FA501] warning: frame allocation behaves like long-lived data
-//   suggestion: Consider using pool_alloc() or scratch_pool()
-```
-
-Detects "bad memory" — allocations that violate their declared intent. Opt-in, zero overhead when disabled.
-
-## v0.3.0: Frame Retention & Promotion
-
-```rust
-// Allocate with retention policy
-let data = alloc.frame_retained::<NavMesh>(RetentionPolicy::PromoteToPool);
-
-// At frame end, get promoted allocations
-let result = alloc.end_frame_with_promotions();
-```
-
-Frame allocations can optionally "escape" by being promoted to pool, heap, or scratch at frame end.
-
-## v0.2.0 Features
-
-```rust
-// Frame phases - profile memory per game system
-alloc.begin_phase("physics");
-alloc.end_phase();
-
-// Checkpoints - rollback speculative allocations
-let checkpoint = alloc.frame_checkpoint();
-if failed { alloc.rollback_to(checkpoint); }
-
-// Frame collections - bounded, cannot escape frame
-let mut entities = alloc.frame_vec::<Entity>(128);
-
-// Tagged allocations - attribute to subsystems
-alloc.with_tag("ai", |a| a.frame_alloc::<Scratch>());
-
-// Scratch pools - cross-frame reusable memory
-let pool = alloc.scratch_pool("pathfinding");
-```
-
-## Feature Philosophy
-
-`framealloc` is intentionally modular. You do **not** need every feature.
-
-At its core, `framealloc` provides:
-- Frame-based bump allocation
-- Thread-local fast paths
-- Automatic single → multi-thread scaling
-
-Everything else is optional and opt-in.
-
-| Feature | Use it if you need… |
-|---------|---------------------|
-| Frame arenas | Ultra-fast per-frame scratch memory |
-| Pool allocator | Small objects with reuse |
-| Groups | Bulk free (levels, scenes, subsystems) |
-| Streaming allocator | Incremental asset loading |
-| Budgets | Memory caps and pressure detection |
-| Phases | Per-system profiling within frames |
-| Checkpoints | Speculative allocation with rollback |
-| Scratch pools | Cross-frame reusable memory |
-| Diagnostics | Detect engine-level allocation mistakes |
-| Bevy integration | Automatic frame resets in Bevy |
-
-**No feature changes the core fast path unless explicitly enabled.**
+---
 
 ## Cargo Features
 
 | Feature | Description |
 |---------|-------------|
-| `bevy` | Bevy plugin integration |
-| `parking_lot` | Use parking_lot for faster mutexes |
+| `bevy` | Bevy ECS plugin integration |
+| `parking_lot` | Faster mutex implementation |
 | `debug` | Memory poisoning, allocation backtraces |
 | `tracy` | Tracy profiler integration |
-| `nightly` | std::alloc::Allocator trait |
+| `nightly` | `std::alloc::Allocator` trait support |
 | `diagnostics` | Enhanced runtime diagnostics |
+| `memory_filter` | Behavior filter for pattern detection |
 
-## Documentation
-
-See [TECHNICAL.md](TECHNICAL.md) for comprehensive documentation.
+---
 
 ## Performance
 
-The allocation flow prioritizes speed:
+Allocation priority minimizes latency:
 
-1. **Frame arena**: Bump pointer, no locks, no atomics
-2. **Local pools**: Thread-local free lists, O(1)
-3. **Global refill**: Mutex-protected, rare
-4. **System heap**: Fallback for large allocations
+1. **Frame arena** — Bump pointer increment, no synchronization
+2. **Thread-local pools** — Free list pop, no contention
+3. **Global pool refill** — Mutex-protected, batched
+4. **System heap** — Fallback for oversized allocations
 
-In practice, 90%+ of game allocations hit the frame arena path.
+In typical game workloads, **90%+ of allocations** hit the frame arena path.
+
+---
+
+## Documentation
+
+| Resource | Description |
+|----------|-------------|
+| [API Docs](https://docs.rs/framealloc) | Generated API documentation |
+| [TECHNICAL.md](TECHNICAL.md) | Architecture and implementation details |
+| [CHANGELOG.md](CHANGELOG.md) | Version history and migration guides |
+
+---
 
 ## License
 
 Licensed under either of:
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- [Apache License, Version 2.0](LICENSE-APACHE)
+- [MIT License](LICENSE-MIT)
 
 at your option.
