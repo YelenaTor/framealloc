@@ -2,6 +2,10 @@
 
 **Intent-aware, thread-smart memory allocation for Rust game engines.**
 
+[![Crates.io](https://img.shields.io/crates/v/framealloc.svg)](https://crates.io/crates/framealloc)
+[![Documentation](https://docs.rs/framealloc/badge.svg)](https://docs.rs/framealloc)
+[![License](https://img.shields.io/crates/l/framealloc.svg)](LICENSE)
+
 - Frame-based arenas (bump allocation, reset per frame)
 - Thread-local fast paths (zero locks in common case)
 - Automatic ST → MT scaling (no mode switching)
@@ -64,17 +68,68 @@ fn my_system(alloc: Res<framealloc::bevy::AllocResource>) {
 }
 ```
 
-## Features
+## v0.2.0 Features
+
+```rust
+// Frame phases - profile memory per game system
+alloc.begin_phase("physics");
+// ...allocations tracked under "physics"
+alloc.end_phase();
+
+// Checkpoints - rollback speculative allocations
+let checkpoint = alloc.frame_checkpoint();
+if failed { alloc.rollback_to(checkpoint); }
+
+// Frame collections - bounded, cannot escape frame
+let mut entities = alloc.frame_vec::<Entity>(128);
+
+// Tagged allocations - attribute to subsystems
+alloc.with_tag("ai", |a| a.frame_alloc::<Scratch>());
+
+// Scratch pools - cross-frame reusable memory
+let pool = alloc.scratch_pool("pathfinding");
+```
+
+## Feature Philosophy
+
+`framealloc` is intentionally modular. You do **not** need every feature.
+
+At its core, `framealloc` provides:
+- Frame-based bump allocation
+- Thread-local fast paths
+- Automatic single → multi-thread scaling
+
+Everything else is optional and opt-in.
+
+| Feature | Use it if you need… |
+|---------|---------------------|
+| Frame arenas | Ultra-fast per-frame scratch memory |
+| Pool allocator | Small objects with reuse |
+| Groups | Bulk free (levels, scenes, subsystems) |
+| Streaming allocator | Incremental asset loading |
+| Budgets | Memory caps and pressure detection |
+| Phases | Per-system profiling within frames |
+| Checkpoints | Speculative allocation with rollback |
+| Scratch pools | Cross-frame reusable memory |
+| Diagnostics | Detect engine-level allocation mistakes |
+| Bevy integration | Automatic frame resets in Bevy |
+
+**No feature changes the core fast path unless explicitly enabled.**
+
+## Cargo Features
 
 | Feature | Description |
 |---------|-------------|
 | `bevy` | Bevy plugin integration |
 | `parking_lot` | Use parking_lot for faster mutexes |
 | `debug` | Memory poisoning, allocation backtraces |
+| `tracy` | Tracy profiler integration |
+| `nightly` | std::alloc::Allocator trait |
+| `diagnostics` | Enhanced runtime diagnostics |
 
-## Architecture
+## Documentation
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for internal design details.
+See [TECHNICAL.md](TECHNICAL.md) for comprehensive documentation.
 
 ## Performance
 

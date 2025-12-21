@@ -5,9 +5,14 @@
 
 pub mod alloc;
 pub mod allocator_impl;
+pub mod checkpoint;
 pub mod config;
+pub mod frame_collections;
 pub mod groups;
+pub mod phases;
 pub mod scope;
+pub mod scratch;
 pub mod stats;
 pub mod tag;
+pub mod tagged;
 pub mod wrappers;

@@ -15,6 +15,14 @@
 //! - Safe wrapper types (FrameBox, PoolBox, HeapBox)
 //! - std::alloc::Allocator trait implementations
 //!
+//! ## v0.2.0 Features
+//!
+//! - **Frame phases**: Named scopes within frames for profiling
+//! - **Frame checkpoints**: Save/restore points for speculative allocation
+//! - **Frame collections**: FrameVec, FrameMap with fixed capacity
+//! - **Tagged allocations**: First-class allocation attribution
+//! - **Scratch pools**: Cross-frame reusable memory
+//!
 //! ## Quick Start
 //!
 //! ```rust,no_run
@@ -80,3 +88,19 @@ pub use diagnostics::{AllocatorSnapshot, SnapshotHistory};
 pub use diagnostics::{Diagnostic, DiagnosticKind};
 pub use diagnostics::{StrictMode, set_strict_mode, StrictModeGuard};
 pub use diagnostics::{FA001, FA002, FA003, FA101, FA102, FA201, FA202, FA301, FA302, FA401, FA402, FA901};
+
+// v0.2.0: Frame phases
+pub use api::phases::{Phase, PhaseGuard, PhaseTracker};
+pub use api::phases::{begin_phase, end_phase, current_phase, is_in_phase};
+
+// v0.2.0: Frame checkpoints
+pub use api::checkpoint::{FrameCheckpoint, CheckpointGuard, SpeculativeResult};
+
+// v0.2.0: Frame collections
+pub use api::frame_collections::{FrameVec, FrameVecIntoIter, FrameMap};
+
+// v0.2.0: Tagged allocations
+pub use api::tagged::{TagGuard, TagStack, with_tag, current_tag, tag_path};
+
+// v0.2.0: Scratch pools
+pub use api::scratch::{ScratchPool, ScratchRegistry, ScratchPoolHandle, ScratchPoolStats};

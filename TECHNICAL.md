@@ -435,6 +435,171 @@ hooks.set_callback(|event| {
 
 ---
 
+## v0.2.0 Features
+
+### Frame Phases
+
+Divide frames into named phases for profiling and diagnostics:
+
+```rust
+alloc.begin_frame();
+
+alloc.begin_phase("physics");
+let contacts = alloc.frame_alloc::<[Contact; 256]>();
+// All allocations tracked under "physics"
+alloc.end_phase();
+
+alloc.begin_phase("render");
+let verts = alloc.frame_alloc::<[Vertex; 4096]>();
+alloc.end_phase();
+
+alloc.end_frame();
+```
+
+**Features:**
+- Zero overhead when not using phases
+- Nested phase support
+- Per-phase allocation statistics
+- Integrates with diagnostics and profiler hooks
+
+**Use with RAII guard:**
+```rust
+{
+    let _phase = alloc.phase_scope("ai");
+    // allocations here are in "ai" phase
+} // phase ends automatically
+```
+
+### Frame Checkpoints
+
+Save and rollback speculative allocations:
+
+```rust
+alloc.begin_frame();
+
+let checkpoint = alloc.frame_checkpoint();
+
+// Speculative allocations
+let result = try_complex_operation();
+
+if result.is_err() {
+    alloc.rollback_to(checkpoint); // Undo all allocations
+}
+
+alloc.end_frame();
+```
+
+**Speculative blocks:**
+```rust
+let result = alloc.speculative(|| {
+    let data = alloc.frame_alloc::<LargeData>();
+    if validate(data).is_err() {
+        return Err("validation failed");
+    }
+    Ok(process(data))
+});
+// Automatically rolled back on Err
+```
+
+**Use cases:**
+- Pathfinding with dead-end rollback
+- Physics with speculative contacts
+- UI layout with try/fail patterns
+
+### Frame Collections
+
+Bounded, frame-local collections:
+
+```rust
+// FrameVec - fixed capacity vector
+let mut entities = alloc.frame_vec::<Entity>(128);
+entities.push(entity1);
+entities.push(entity2);
+
+for entity in entities.iter() {
+    process(entity);
+}
+// Freed at end_frame()
+```
+
+```rust
+// FrameMap - fixed capacity hash map
+let mut lookup = alloc.frame_map::<EntityId, Transform>(64);
+lookup.insert(id, transform);
+
+if let Some(t) = lookup.get(&id) {
+    use_transform(t);
+}
+```
+
+**Properties:**
+- Cannot grow beyond initial capacity
+- Cannot escape the frame (lifetime-bound)
+- Full iterator support
+- Familiar API (push, pop, get, iter)
+
+### Tagged Allocations
+
+First-class allocation attribution:
+
+```rust
+alloc.with_tag("ai", |alloc| {
+    let scratch = alloc.frame_alloc::<AIScratch>();
+    // Allocation attributed to "ai" tag
+    
+    alloc.with_tag("pathfinding", |alloc| {
+        let nodes = alloc.frame_alloc::<[Node; 256]>();
+        // Nested: attributed to "ai::pathfinding"
+    });
+});
+
+// Check current tag
+println!("Tag: {:?}", alloc.current_tag());
+println!("Path: {}", alloc.tag_path()); // "ai::pathfinding"
+```
+
+**Benefits:**
+- Automatic budget attribution
+- Better profiling granularity
+- Clearer diagnostics
+
+### Scratch Pools
+
+Cross-frame reusable memory:
+
+```rust
+// Get or create a named pool
+let pool = alloc.scratch_pool("pathfinding");
+
+// Allocate (persists across frames)
+let nodes = pool.alloc::<[PathNode; 1024]>();
+
+// Use across multiple frames...
+
+// Reset when done (e.g., level unload)
+pool.reset();
+```
+
+**Registry access:**
+```rust
+let scratch = alloc.scratch();
+
+// Get stats for all pools
+for stat in scratch.stats() {
+    println!("{}: {} / {} bytes", stat.name, stat.allocated, stat.capacity);
+}
+
+// Reset all pools
+scratch.reset_all();
+```
+
+**Use cases:**
+- Pathfinding node storage
+- Level-specific allocations
+- Subsystem scratch memory that outlives frames
+
+---
+
 ## Diagnostics System
 
 `framealloc` provides **allocator-specific diagnostics** at build time, compile time, and runtime.
