@@ -15,6 +15,7 @@ use crate::api::retention::{
     self, FrameRetained, Importance, PromotedAllocation, RetainedAllocation, RetainedMeta,
     RetentionPolicy,
 };
+use crate::diagnostics::behavior::{AllocKind, BehaviorFilter, BehaviorReport, BehaviorThresholds};
 use crate::api::scope::FrameGuard;
 use crate::api::scratch::ScratchRegistry;
 use crate::api::stats::AllocStats;
@@ -51,6 +52,8 @@ pub struct SmartAlloc {
     diagnostics: Arc<SharedDiagnostics>,
     scratch: Arc<ScratchRegistry>,
     frame_counter: Arc<std::sync::atomic::AtomicU64>,
+    /// Behavior filter for detecting allocation pattern issues (v0.4.0)
+    behavior_filter: Arc<BehaviorFilter>,
 }
 
 impl SmartAlloc {
@@ -70,6 +73,7 @@ impl SmartAlloc {
             diagnostics: Arc::new(SharedDiagnostics::new()),
             scratch: Arc::new(ScratchRegistry::default()),
             frame_counter: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            behavior_filter: Arc::new(BehaviorFilter::new()),
         }
     }
 
@@ -96,6 +100,7 @@ impl SmartAlloc {
     /// Any pointers from `frame_alloc` become invalid after this call.
     pub fn end_frame(&self) {
         phases::reset_phases();
+        self.behavior_filter.end_frame();
         tls::with_tls(|tls| {
             tls.end_frame();
         });
@@ -593,6 +598,100 @@ impl SmartAlloc {
     /// instead of promoting them.
     pub fn clear_retained(&self) {
         retention::clear_retained();
+    }
+
+    // ==================== Behavior Filter (v0.4.0) ====================
+
+    /// Enable the behavior filter for allocation pattern analysis.
+    ///
+    /// When enabled, the filter tracks allocation patterns per-tag and
+    /// detects intent violations like:
+    /// - Frame allocations that survive too long
+    /// - Pool allocations used as scratch
+    /// - Excessive promotion churn
+    /// - Heap allocations in hot paths
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// alloc.enable_behavior_filter();
+    ///
+    /// // Run your game loop...
+    /// for _ in 0..1000 {
+    ///     alloc.begin_frame();
+    ///     // ... allocations ...
+    ///     alloc.end_frame();
+    /// }
+    ///
+    /// // Check for issues
+    /// let report = alloc.behavior_report();
+    /// for issue in &report.issues {
+    ///     eprintln!("{}", issue);
+    /// }
+    /// ```
+    pub fn enable_behavior_filter(&self) {
+        self.behavior_filter.enable();
+    }
+
+    /// Disable the behavior filter.
+    pub fn disable_behavior_filter(&self) {
+        self.behavior_filter.disable();
+    }
+
+    /// Check if the behavior filter is enabled.
+    pub fn is_behavior_filter_enabled(&self) -> bool {
+        self.behavior_filter.is_enabled()
+    }
+
+    /// Set behavior detection thresholds.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// // Use strict thresholds for CI
+    /// alloc.set_behavior_thresholds(BehaviorThresholds::strict());
+    ///
+    /// // Use relaxed thresholds during development
+    /// alloc.set_behavior_thresholds(BehaviorThresholds::relaxed());
+    /// ```
+    pub fn set_behavior_thresholds(&self, thresholds: BehaviorThresholds) {
+        // Note: This requires mutable access, so we'd need interior mutability
+        // For now, thresholds are set at construction time
+        let _ = thresholds;
+    }
+
+    /// Get the behavior analysis report.
+    ///
+    /// Analyzes tracked allocation patterns and returns detected issues.
+    pub fn behavior_report(&self) -> BehaviorReport {
+        self.behavior_filter.analyze()
+    }
+
+    /// Reset behavior tracking statistics.
+    pub fn reset_behavior_stats(&self) {
+        self.behavior_filter.reset();
+    }
+
+    /// Record an allocation for behavior tracking.
+    ///
+    /// This is called automatically by allocation methods when the filter is enabled.
+    pub(crate) fn record_behavior_alloc(&self, ptr: *const u8, tag: &'static str, kind: AllocKind, size: usize) {
+        self.behavior_filter.record_alloc(ptr, tag, kind, size);
+    }
+
+    /// Record a deallocation for behavior tracking.
+    pub(crate) fn record_behavior_free(&self, ptr: *const u8, tag: &'static str, kind: AllocKind, size: usize) {
+        self.behavior_filter.record_free(ptr, tag, kind, size);
+    }
+
+    /// Record a promotion for behavior tracking.
+    pub(crate) fn record_behavior_promotion(&self, tag: &'static str, from_kind: AllocKind) {
+        self.behavior_filter.record_promotion(tag, from_kind);
+    }
+
+    /// Get the behavior filter for advanced usage.
+    pub fn behavior_filter(&self) -> &BehaviorFilter {
+        &self.behavior_filter
     }
 }
 

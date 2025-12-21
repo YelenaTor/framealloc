@@ -108,3 +108,10 @@ pub use api::scratch::{ScratchPool, ScratchRegistry, ScratchPoolHandle, ScratchP
 // v0.3.0: Frame retention and promotion
 pub use api::retention::{RetentionPolicy, Importance, FrameRetained, PromotedAllocation, PromotionFailure};
 pub use api::promotion::{FrameSummary, PromotionResult, FailureBreakdown, TagSummary, PhaseSummary};
+
+// v0.4.0: Behavior filter and memory intent analysis
+pub use diagnostics::behavior::{
+    AllocKind, BehaviorFilter, BehaviorIssue, BehaviorReport, BehaviorThresholds, TagBehaviorStats,
+    FA501, FA502, FA510, FA520, FA530,
+};
+pub use diagnostics::{DiagnosticCode, DiagnosticLevel};

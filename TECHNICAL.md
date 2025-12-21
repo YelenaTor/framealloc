@@ -744,6 +744,137 @@ fn clear_retained(&self)
 
 ---
 
+## v0.4.0: Memory Behavior Filter
+
+### Overview
+
+The behavior filter detects "bad memory" — allocations that **violate their declared intent**. This is NOT about unsafe memory; it's about catching patterns like:
+
+- Frame allocations that behave like long-lived data
+- Pool allocations used as scratch (freed same frame)
+- Excessive promotion churn
+- Heap allocations in hot paths
+
+### Enabling the Filter
+
+```rust
+// Enable tracking (disabled by default, zero overhead when off)
+alloc.enable_behavior_filter();
+
+// Run your game loop
+for _ in 0..1000 {
+    alloc.begin_frame();
+    
+    alloc.with_tag("physics", |alloc| {
+        let scratch = alloc.frame_alloc::<PhysicsScratch>();
+        // ...
+    });
+    
+    alloc.end_frame();
+}
+
+// Analyze behavior
+let report = alloc.behavior_report();
+println!("{}", report.summary());
+
+for issue in &report.issues {
+    eprintln!("{}", issue);
+}
+```
+
+### Diagnostic Codes
+
+| Code | Severity | Meaning |
+|------|----------|---------|
+| FA501 | Warning | Frame allocation survives too long (avg lifetime > threshold) |
+| FA502 | Warning | High frame survival rate (>50% survive beyond frame) |
+| FA510 | Hint | Pool allocation used as scratch (>80% freed same frame) |
+| FA520 | Warning | Promotion churn (>0.5 promotions/frame) |
+| FA530 | Warning | Heap allocation in hot path (frequent heap allocs) |
+
+### Example Output
+
+```
+[FA501] warning: frame allocation behaves like long-lived data
+  tag: ai::pathfinding
+  observed: avg lifetime: 128.0 frames
+  threshold: expected < 60 frames
+  suggestion: Consider using pool_alloc() or scratch_pool()
+
+[FA520] warning: Excessive promotion churn detected
+  tag: rendering::meshes
+  observed: 0.75 promotions/frame
+  threshold: expected < 0.50/frame
+  suggestion: Consider allocating directly in the target allocator
+```
+
+### Configurable Thresholds
+
+```rust
+// Default thresholds
+let default = BehaviorThresholds::default();
+
+// Strict thresholds for CI/testing
+let strict = BehaviorThresholds::strict();
+
+// Relaxed thresholds for development
+let relaxed = BehaviorThresholds::relaxed();
+
+// Custom thresholds
+let custom = BehaviorThresholds {
+    frame_survival_frames: 120,        // Frames before warning
+    frame_survival_rate: 0.3,          // 30% survival rate
+    pool_same_frame_free_rate: 0.9,    // 90% freed same frame
+    promotion_churn_rate: 0.3,         // 0.3 promotions/frame
+    heap_in_hot_path_count: 50,        // 50 heap allocs
+    min_samples: 20,                   // Min allocs before analysis
+};
+```
+
+### Per-Tag Tracking
+
+Statistics are tracked **per-tag**, not per-allocation. This keeps memory overhead at O(tags) instead of O(allocations):
+
+```rust
+// Each unique (tag, alloc_kind) pair gets its own stats
+pub struct TagBehaviorStats {
+    pub tag: &'static str,
+    pub kind: AllocKind,
+    pub total_allocs: u64,
+    pub survived_frame_count: u64,
+    pub promotion_count: u64,
+    pub same_frame_frees: u64,
+    // ...
+}
+```
+
+### CI Integration
+
+```bash
+# Enable strict mode in CI
+FRAMEALLOC_STRICT=warning cargo test
+
+# Or programmatically
+alloc.enable_behavior_filter();
+// ... run tests ...
+let report = alloc.behavior_report();
+if report.has_warnings() {
+    std::process::exit(1);
+}
+```
+
+### Design Principles
+
+| Principle | Implementation |
+|-----------|----------------|
+| **Opt-in** | Disabled by default, no overhead |
+| **Per-tag** | O(tags) memory, not O(allocations) |
+| **Actionable** | Every issue includes a suggestion |
+| **Not a cop** | Advises, doesn't block |
+| **Deterministic** | Same inputs → same outputs |
+
+---
+
 ## Diagnostics System
 
 `framealloc` provides **allocator-specific diagnostics** at build time, compile time, and runtime.

@@ -1,6 +1,6 @@
 [package]
 name = "framealloc"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 authors = ["YelenaTor"]
 description = "Intent-aware, thread-smart memory allocation for Rust game engines"
@@ -31,8 +31,9 @@ tracy = ["dep:tracy-client"]
 # Nightly: std::alloc::Allocator trait implementations
 nightly = []
 
-# Enhanced runtime diagnostics (allocator-aware error messages)
-diagnostics = []
+# Memory behavior filter: runtime detection of allocation pattern issues (v0.4.0)
+# Tracks per-tag allocation behavior and detects intent violations
+memory_filter = []
 
 [dependencies]
 # Lock-free concurrent queue for deferred frees

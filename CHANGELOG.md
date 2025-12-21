@@ -5,6 +5,79 @@ All notable changes to `framealloc` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-12-21
+
+### Added
+
+#### Memory Behavior Filter
+
+Runtime detection of allocation pattern issues — "bad memory" is memory that violates declared intent.
+
+**Detected Issues:**
+| Code | Issue | Description |
+|------|-------|-------------|
+| FA501 | Frame survives too long | Frame allocation avg lifetime > threshold |
+| FA502 | High survival rate | Too many frame allocations survive beyond frame |
+| FA510 | Pool as scratch | Pool allocations freed same frame (use frame_alloc) |
+| FA520 | Promotion churn | Excessive promotions per frame |
+| FA530 | Heap in hot path | Frequent heap allocations (use pool/frame) |
+
+**Usage:**
+```rust
+// Enable behavior tracking
+alloc.enable_behavior_filter();
+
+// Run your game loop...
+for _ in 0..1000 {
+    alloc.begin_frame();
+    // ... allocations with tags ...
+    alloc.end_frame();
+}
+
+// Analyze and report issues
+let report = alloc.behavior_report();
+for issue in &report.issues {
+    eprintln!("{}", issue);
+}
+
+// Output example:
+// [FA501] warning: frame allocation behaves like long-lived data
+//   tag: ai::pathfinding
+//   observed: avg lifetime: 128.0 frames
+//   threshold: expected < 60 frames
+//   suggestion: Consider using pool_alloc() or scratch_pool()
+```
+
+**Configurable Thresholds:**
+```rust
+// Strict for CI
+BehaviorThresholds::strict()
+
+// Relaxed for development
+BehaviorThresholds::relaxed()
+
+// Custom
+BehaviorThresholds {
+    frame_survival_frames: 120,
+    frame_survival_rate: 0.3,
+    ..Default::default()
+}
+```
+
+**Design Principles:**
+- **Opt-in**: Disabled by default, zero overhead when off
+- **Per-tag tracking**: O(tags) memory, not O(allocations)
+- **Actionable**: Every issue includes a suggestion
+- **Not a cop**: Advises, doesn't block
+
+#### Enhanced Build-time Advisor
+
+- Async runtime detection (warns about frame allocs across await)
+- Memory filter feature guidance
+- Ecosystem-aware suggestions
+
+---
+
 ## [0.3.0] - 2025-12-21
 
 ### Added
@@ -271,6 +344,7 @@ let id = streaming.reserve(size, StreamPriority::High)?;
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.4.0 | 2025-12-21 | Memory behavior filter, async detection, build advisor |
 | 0.3.0 | 2025-12-21 | Frame retention & promotion system |
 | 0.2.1 | 2025-12-21 | Thread safety fix for FrameVec/FrameMap (!Send/!Sync) |
 | 0.2.0 | 2025-12-21 | Phases, checkpoints, frame collections, tags, scratch pools |

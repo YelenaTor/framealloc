@@ -12,6 +12,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_PARKING_LOT");
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_TRACY");
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_NIGHTLY");
+    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_MEMORY_FILTER");
 
     // Collect enabled features
     let bevy_enabled = env::var("CARGO_FEATURE_BEVY").is_ok();
@@ -19,6 +20,7 @@ fn main() {
     let parking_lot_enabled = env::var("CARGO_FEATURE_PARKING_LOT").is_ok();
     let tracy_enabled = env::var("CARGO_FEATURE_TRACY").is_ok();
     let nightly_enabled = env::var("CARGO_FEATURE_NIGHTLY").is_ok();
+    let memory_filter_enabled = env::var("CARGO_FEATURE_MEMORY_FILTER").is_ok();
 
     // Get build profile
     let profile = env::var("PROFILE").unwrap_or_else(|_| "unknown".to_string());
@@ -85,6 +87,25 @@ fn main() {
         // Check if actually on nightly
         check_nightly_compiler();
     }
+
+    // --- Memory Behavior Filter (v0.4.0) ---
+    if memory_filter_enabled {
+        emit_info("Memory behavior filter enabled (v0.4.0)");
+        emit_note("The behavior filter detects allocation pattern issues:");
+        emit_note("  • Frame allocations that survive too long (FA501, FA502)");
+        emit_note("  • Pool allocations used as scratch (FA510)");
+        emit_note("  • Excessive promotion churn (FA520)");
+        emit_note("  • Heap allocations in hot paths (FA530)");
+        emit_note("");
+        emit_note("Enable and check at runtime:");
+        emit_note("  alloc.enable_behavior_filter();");
+        emit_note("  // ... run your game loop ...");
+        emit_note("  let report = alloc.behavior_report();");
+        emit_note("  for issue in &report.issues { eprintln!(\"{}\", issue); }");
+    }
+
+    // --- Async Runtime Detection ---
+    detect_async_runtime();
 
     // =========================================================================
     // Release build recommendations
@@ -201,5 +222,40 @@ fn check_target_features() {
         emit_info("Building for Linux");
     } else if target.contains("darwin") || target.contains("macos") {
         emit_info("Building for macOS");
+    }
+}
+
+fn detect_async_runtime() {
+    // Try to detect common async runtimes via environment or dependencies
+    // This is advisory only - we can't perfectly detect async usage
+    
+    let has_tokio = env::var("DEP_TOKIO_VERSION").is_ok() 
+        || std::path::Path::new("Cargo.lock").exists() 
+        && std::fs::read_to_string("Cargo.lock")
+            .map(|s| s.contains("name = \"tokio\""))
+            .unwrap_or(false);
+    
+    let has_async_std = std::path::Path::new("Cargo.lock").exists()
+        && std::fs::read_to_string("Cargo.lock")
+            .map(|s| s.contains("name = \"async-std\""))
+            .unwrap_or(false);
+    
+    if has_tokio || has_async_std {
+        emit_separator();
+        emit_warning("Async runtime detected in project");
+        emit_note("Frame allocations are NOT safe across await points!");
+        emit_note("");
+        emit_note("⚠️  UNSAFE pattern:");
+        emit_note("  async fn bad(alloc: &SmartAlloc) {");
+        emit_note("      let data = alloc.frame_box(value); // Allocated here");
+        emit_note("      some_async_call().await;            // Frame may reset!");
+        emit_note("      use_data(&data);                    // 💥 Use after free");
+        emit_note("  }");
+        emit_note("");
+        emit_note("✅ SAFE alternatives:");
+        emit_note("  • Use pool_box() or heap_box() for data crossing await");
+        emit_note("  • Use scratch_pool() for task-local scratch memory");
+        emit_note("  • Complete frame work before awaiting");
+        emit_separator();
     }
 }

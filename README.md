@@ -68,24 +68,41 @@ fn my_system(alloc: Res<framealloc::bevy::AllocResource>) {
 }
 ```
 
+## v0.4.0: Memory Behavior Filter
+
+```rust
+// Enable behavior tracking
+alloc.enable_behavior_filter();
+
+// Run your game loop...
+for _ in 0..1000 {
+    alloc.begin_frame();
+    alloc.with_tag("physics", |a| { /* allocations */ });
+    alloc.end_frame();
+}
+
+// Check for issues
+let report = alloc.behavior_report();
+for issue in &report.issues {
+    eprintln!("{}", issue);
+}
+// [FA501] warning: frame allocation behaves like long-lived data
+//   suggestion: Consider using pool_alloc() or scratch_pool()
+```
+
+Detects "bad memory" — allocations that violate their declared intent. Opt-in, zero overhead when disabled.
+
 ## v0.3.0: Frame Retention & Promotion
 
 ```rust
 // Allocate with retention policy
 let data = alloc.frame_retained::<NavMesh>(RetentionPolicy::PromoteToPool);
-data.calculate();
 
 // At frame end, get promoted allocations
 let result = alloc.end_frame_with_promotions();
-for item in result.promoted {
-    // Handle PoolBox, HeapBox, or Failed
-}
-
-// Or use semantic importance levels
-let path = alloc.frame_with_importance::<Path>(Importance::Reusable);
 ```
 
-Frame allocations can now optionally "escape" by being promoted to pool, heap, or scratch allocators at frame end. This is explicit, deterministic, and bounded — not garbage collection.
+Frame allocations can optionally "escape" by being promoted to pool, heap, or scratch at frame end.
 
 ## v0.2.0 Features
 

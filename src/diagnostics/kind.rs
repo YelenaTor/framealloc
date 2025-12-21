@@ -2,6 +2,49 @@
 //!
 //! Mirrors rustc's diagnostic levels for familiar UX.
 
+/// Diagnostic code wrapper for type-safe code references.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DiagnosticCode(&'static str);
+
+impl DiagnosticCode {
+    /// Create a new diagnostic code.
+    pub const fn new(code: &'static str) -> Self {
+        Self(code)
+    }
+    
+    /// Get the code string.
+    pub const fn as_str(&self) -> &'static str {
+        self.0
+    }
+}
+
+impl std::fmt::Display for DiagnosticCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Diagnostic severity level (for behavior analysis).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum DiagnosticLevel {
+    /// Informational hint - not a problem, just a suggestion.
+    Hint,
+    /// Warning - probably suboptimal but not necessarily wrong.
+    Warning,
+    /// Error - definitely a problem that should be fixed.
+    Error,
+}
+
+impl std::fmt::Display for DiagnosticLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Hint => write!(f, "hint"),
+            Self::Warning => write!(f, "warning"),
+            Self::Error => write!(f, "error"),
+        }
+    }
+}
+
 /// The severity level of a diagnostic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiagnosticKind {
