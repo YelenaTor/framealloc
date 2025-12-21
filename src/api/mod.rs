@@ -10,6 +10,8 @@ pub mod config;
 pub mod frame_collections;
 pub mod groups;
 pub mod phases;
+pub mod promotion;
+pub mod retention;
 pub mod scope;
 pub mod scratch;
 pub mod stats;

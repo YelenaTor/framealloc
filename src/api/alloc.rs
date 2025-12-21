@@ -1,5 +1,6 @@
 //! The main allocator type.
 
+use std::alloc::Layout;
 use std::sync::Arc;
 
 use crate::allocators::handles::HandleAllocator;
@@ -9,6 +10,11 @@ use crate::api::config::AllocConfig;
 use crate::api::frame_collections::{FrameMap, FrameVec};
 use crate::api::groups::GroupAllocator;
 use crate::api::phases::{self, Phase, PhaseGuard};
+use crate::api::promotion::{FrameSummary, PromotionProcessor, PromotionResult};
+use crate::api::retention::{
+    self, FrameRetained, Importance, PromotedAllocation, RetainedAllocation, RetainedMeta,
+    RetentionPolicy,
+};
 use crate::api::scope::FrameGuard;
 use crate::api::scratch::ScratchRegistry;
 use crate::api::stats::AllocStats;
@@ -437,6 +443,156 @@ impl SmartAlloc {
     /// ```
     pub fn scratch_pool(&self, name: &'static str) -> crate::api::scratch::ScratchPoolHandle<'_> {
         self.scratch.get_or_create(name)
+    }
+
+    // ==================== Frame Retention (v0.3.0) ====================
+
+    /// Allocate with a retention policy for post-frame survival.
+    ///
+    /// Unlike regular frame allocations that are discarded at `end_frame()`,
+    /// retained allocations can be promoted to other allocators.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// // Allocate with promotion to pool
+    /// let mut data = alloc.frame_retained::<NavMesh>(RetentionPolicy::PromoteToPool);
+    /// data.calculate();
+    ///
+    /// // At frame end, get promoted allocations
+    /// let result = alloc.end_frame_with_promotions();
+    /// for item in result.promoted {
+    ///     // Handle promoted allocations
+    /// }
+    /// ```
+    pub fn frame_retained<T>(&self, policy: RetentionPolicy) -> FrameRetained<'_, T> {
+        // Allocate from frame arena
+        let ptr = tls::with_tls(|tls| tls.frame_alloc::<T>());
+        
+        // If policy is Discard, just return the handle without registering
+        if !policy.promotes() {
+            return FrameRetained::new(ptr, 0);
+        }
+        
+        // Register for promotion
+        let tag = tagged::current_tag();
+        let meta = RetainedMeta {
+            policy,
+            size: std::mem::size_of::<T>(),
+            tag,
+            type_name: std::any::type_name::<T>(),
+        };
+        
+        let alloc = RetainedAllocation {
+            ptr: ptr as *mut u8,
+            meta,
+            promote_fn: Box::new(|_| PromotedAllocation::Pool {
+                ptr: std::ptr::null_mut(),
+                size: std::mem::size_of::<T>(),
+                tag: None,
+                type_name: std::any::type_name::<T>(),
+            }),
+        };
+        
+        let id = retention::register_retained(alloc);
+        FrameRetained::new(ptr, id)
+    }
+
+    /// Allocate with importance level (semantic sugar for retention).
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// // Reusable = promote to pool
+    /// let data = alloc.frame_with_importance::<Path>(Importance::Reusable);
+    ///
+    /// // Persistent = promote to heap
+    /// let data = alloc.frame_with_importance::<Config>(Importance::Persistent);
+    /// ```
+    pub fn frame_with_importance<T>(&self, importance: Importance) -> FrameRetained<'_, T> {
+        self.frame_retained(importance.to_policy())
+    }
+
+    /// End frame and process retained allocations.
+    ///
+    /// This is an alternative to `end_frame()` that also processes
+    /// retained allocations and returns promotion results.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let result = alloc.end_frame_with_promotions();
+    /// 
+    /// println!("Promoted {} bytes to pool", result.summary.promoted_pool_bytes);
+    /// println!("Failed to promote {} allocations", result.summary.failed_count);
+    ///
+    /// for item in result.promoted {
+    ///     match item {
+    ///         PromotedAllocation::Pool { ptr, size, .. } => {
+    ///             // Handle pool allocation
+    ///         }
+    ///         PromotedAllocation::Failed { reason, .. } => {
+    ///             // Handle failure
+    ///         }
+    ///         _ => {}
+    ///     }
+    /// }
+    /// ```
+    pub fn end_frame_with_promotions(&self) -> PromotionResult {
+        // Take all retained allocations
+        let retained = retention::take_retained();
+        
+        // Set up the promotion processor with allocator callbacks
+        let inner = self.inner.clone();
+        let scratch = self.scratch.clone();
+        
+        let processor = PromotionProcessor::new()
+            .with_pool_alloc(move |layout: Layout| {
+                // Use pool allocator
+                tls::with_tls(|tls| {
+                    tls.pool_alloc_layout(layout, &inner)
+                })
+            })
+            .with_heap_alloc(|layout: Layout| {
+                // Use system heap
+                unsafe { std::alloc::alloc(layout) }
+            })
+            .with_scratch_alloc(move |name: &'static str, layout: Layout| {
+                // Use scratch pool
+                scratch.with_pool(name, |pool| pool.alloc_layout(layout))
+            });
+        
+        // Process promotions
+        let result = processor.process(retained);
+        
+        // Now do normal frame end
+        phases::reset_phases();
+        tls::with_tls(|tls| {
+            tls.end_frame();
+        });
+        
+        result
+    }
+
+    /// End frame and get summary only (no promoted allocations returned).
+    ///
+    /// Use this when you don't need the actual promoted data,
+    /// just the statistics.
+    pub fn end_frame_with_summary(&self) -> FrameSummary {
+        self.end_frame_with_promotions().summary
+    }
+
+    /// Get count of pending retained allocations.
+    pub fn retained_count(&self) -> usize {
+        retention::retained_count()
+    }
+
+    /// Clear retained allocations without processing.
+    ///
+    /// Use this if you want to abandon retained allocations
+    /// instead of promoting them.
+    pub fn clear_retained(&self) {
+        retention::clear_retained();
     }
 }
 

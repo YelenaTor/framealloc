@@ -600,6 +600,150 @@ scratch.reset_all();
 
 ---
 
+## v0.3.0: Frame Retention & Promotion
+
+### Overview
+
+Frame allocations normally vanish at `end_frame()`. The retention system lets allocations optionally "escape" to other allocators.
+
+**Key principle:** This is NOT garbage collection. It's explicit, deterministic post-frame ownership transfer.
+
+### Retention Policies
+
+```rust
+pub enum RetentionPolicy {
+    Discard,                      // Default - freed at frame end
+    PromoteToPool,                // Copy to pool allocator
+    PromoteToHeap,                // Copy to heap allocator  
+    PromoteToScratch(&'static str), // Copy to named scratch pool
+}
+```
+
+### Basic Usage
+
+```rust
+// Allocate with retention policy
+let mut data = alloc.frame_retained::<NavMesh>(RetentionPolicy::PromoteToPool);
+data.calculate_paths();
+
+// At frame end, get promoted allocations
+let result = alloc.end_frame_with_promotions();
+
+for item in result.promoted {
+    match item {
+        PromotedAllocation::Pool { ptr, size, .. } => {
+            // Data now lives in pool allocator
+        }
+        PromotedAllocation::Heap { ptr, size, .. } => {
+            // Data now lives on heap
+        }
+        PromotedAllocation::Failed { reason, meta } => {
+            // Promotion failed (budget exceeded, etc.)
+            eprintln!("Failed to promote {}: {}", meta.type_name, reason);
+        }
+        _ => {}
+    }
+}
+```
+
+### Importance Levels (Semantic Sugar)
+
+For more intuitive usage:
+
+```rust
+pub enum Importance {
+    Ephemeral,   // → Discard
+    Reusable,    // → PromoteToPool
+    Persistent,  // → PromoteToHeap
+    Scratch(n),  // → PromoteToScratch(n)
+}
+
+// Usage
+let path = alloc.frame_with_importance::<Path>(Importance::Reusable);
+let config = alloc.frame_with_importance::<Config>(Importance::Persistent);
+```
+
+### Frame Summary Diagnostics
+
+Get detailed statistics about what happened at frame end:
+
+```rust
+let result = alloc.end_frame_with_promotions();
+let summary = result.summary;
+
+println!("Frame Summary:");
+println!("  Discarded: {} bytes ({} allocs)", 
+    summary.discarded_bytes, summary.discarded_count);
+println!("  Promoted to pool: {} bytes ({} allocs)", 
+    summary.promoted_pool_bytes, summary.promoted_pool_count);
+println!("  Promoted to heap: {} bytes ({} allocs)", 
+    summary.promoted_heap_bytes, summary.promoted_heap_count);
+println!("  Failed: {} allocs", summary.failed_count);
+
+// Breakdown by failure reason
+let failures = &summary.failures_by_reason;
+if failures.budget_exceeded > 0 {
+    println!("    Budget exceeded: {}", failures.budget_exceeded);
+}
+if failures.scratch_pool_full > 0 {
+    println!("    Scratch pool full: {}", failures.scratch_pool_full);
+}
+```
+
+### Integration with Tags
+
+Retained allocations preserve their tag attribution:
+
+```rust
+alloc.with_tag("ai", |alloc| {
+    let data = alloc.frame_retained::<AIState>(RetentionPolicy::PromoteToPool);
+    // When promoted, data retains "ai" tag for budgeting
+});
+```
+
+### Design Principles
+
+| Principle | Implementation |
+|-----------|----------------|
+| **Explicit** | Must opt-in per allocation |
+| **Deterministic** | All decisions at `end_frame()` |
+| **Bounded** | Subject to budgets and limits |
+| **No Magic** | No heuristics or auto-promotion |
+
+### When to Use Retention
+
+| Scenario | Recommendation |
+|----------|----------------|
+| Pathfinding result might be reused | `Reusable` / `PromoteToPool` |
+| Computed data proved useful | `Reusable` / `PromoteToPool` |
+| Config loaded during frame | `Persistent` / `PromoteToHeap` |
+| Subsystem scratch that persists | `Scratch("name")` |
+| Truly temporary data | `Ephemeral` / `Discard` (default) |
+
+### API Reference
+
+```rust
+// Allocate with retention
+fn frame_retained<T>(&self, policy: RetentionPolicy) -> FrameRetained<'_, T>
+
+// Allocate with importance (sugar)
+fn frame_with_importance<T>(&self, importance: Importance) -> FrameRetained<'_, T>
+
+// End frame and process promotions
+fn end_frame_with_promotions(&self) -> PromotionResult
+
+// End frame and get summary only
+fn end_frame_with_summary(&self) -> FrameSummary
+
+// Get pending retained count
+fn retained_count(&self) -> usize
+
+// Clear retained without processing
+fn clear_retained(&self)
+```
+
+---
+
 ## Diagnostics System
 
 `framealloc` provides **allocator-specific diagnostics** at build time, compile time, and runtime.

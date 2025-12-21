@@ -68,12 +68,30 @@ fn my_system(alloc: Res<framealloc::bevy::AllocResource>) {
 }
 ```
 
+## v0.3.0: Frame Retention & Promotion
+
+```rust
+// Allocate with retention policy
+let data = alloc.frame_retained::<NavMesh>(RetentionPolicy::PromoteToPool);
+data.calculate();
+
+// At frame end, get promoted allocations
+let result = alloc.end_frame_with_promotions();
+for item in result.promoted {
+    // Handle PoolBox, HeapBox, or Failed
+}
+
+// Or use semantic importance levels
+let path = alloc.frame_with_importance::<Path>(Importance::Reusable);
+```
+
+Frame allocations can now optionally "escape" by being promoted to pool, heap, or scratch allocators at frame end. This is explicit, deterministic, and bounded — not garbage collection.
+
 ## v0.2.0 Features
 
 ```rust
 // Frame phases - profile memory per game system
 alloc.begin_phase("physics");
-// ...allocations tracked under "physics"
 alloc.end_phase();
 
 // Checkpoints - rollback speculative allocations

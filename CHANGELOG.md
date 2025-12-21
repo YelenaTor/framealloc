@@ -5,6 +5,70 @@ All notable changes to `framealloc` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-12-21
+
+### Added
+
+#### Frame Retention & Promotion System
+
+Frame allocations can now optionally "escape" the frame by being promoted to other allocators at frame end.
+
+**Core API:**
+```rust
+// Allocate with retention policy
+let data = alloc.frame_retained::<NavMesh>(RetentionPolicy::PromoteToPool);
+data.calculate();
+
+// At frame end, process promotions
+let result = alloc.end_frame_with_promotions();
+println!("Promoted {} bytes to pool", result.summary.promoted_pool_bytes);
+```
+
+**Retention Policies:**
+| Policy | Destination | Use Case |
+|--------|-------------|----------|
+| `Discard` | None (default) | Temporary scratch data |
+| `PromoteToPool` | Pool allocator | Reusable small objects |
+| `PromoteToHeap` | Heap allocator | Long-lived data |
+| `PromoteToScratch(name)` | Named scratch pool | Subsystem-specific data |
+
+**Importance Levels (Semantic Sugar):**
+```rust
+// More intuitive API
+let data = alloc.frame_with_importance::<Path>(Importance::Reusable);
+
+// Mappings:
+// Ephemeral  → Discard
+// Reusable   → PromoteToPool
+// Persistent → PromoteToHeap
+// Scratch(n) → PromoteToScratch(n)
+```
+
+**Frame Summary Diagnostics:**
+```rust
+let result = alloc.end_frame_with_promotions();
+let summary = result.summary;
+
+println!("Discarded: {} bytes", summary.discarded_bytes);
+println!("Promoted to pool: {} bytes", summary.promoted_pool_bytes);
+println!("Promoted to heap: {} bytes", summary.promoted_heap_bytes);
+println!("Failed: {} ({})", summary.failed_count, summary.failures_by_reason.budget_exceeded);
+```
+
+**Design Principles:**
+- **Explicit**: Retention must be opted-in per allocation
+- **Deterministic**: All decisions happen at `end_frame()` 
+- **Bounded**: Subject to budgets and limits
+- **No Magic**: This is NOT garbage collection
+
+**Use Cases:**
+- Pathfinding results that might be reused
+- Computed data that proved useful
+- Level-loading scratch that should persist
+- AI state that outlives a single frame
+
+---
+
 ## [0.2.1] - 2025-12-21
 
 ### Fixed
@@ -207,6 +271,7 @@ let id = streaming.reserve(size, StreamPriority::High)?;
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.3.0 | 2025-12-21 | Frame retention & promotion system |
 | 0.2.1 | 2025-12-21 | Thread safety fix for FrameVec/FrameMap (!Send/!Sync) |
 | 0.2.0 | 2025-12-21 | Phases, checkpoints, frame collections, tags, scratch pools |
 | 0.1.0 | 2025-12-20 | Initial release |

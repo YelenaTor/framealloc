@@ -104,3 +104,7 @@ pub use api::tagged::{TagGuard, TagStack, with_tag, current_tag, tag_path};
 
 // v0.2.0: Scratch pools
 pub use api::scratch::{ScratchPool, ScratchRegistry, ScratchPoolHandle, ScratchPoolStats};
+
+// v0.3.0: Frame retention and promotion
+pub use api::retention::{RetentionPolicy, Importance, FrameRetained, PromotedAllocation, PromotionFailure};
+pub use api::promotion::{FrameSummary, PromotionResult, FailureBreakdown, TagSummary, PhaseSummary};
