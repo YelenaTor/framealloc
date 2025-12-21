@@ -744,6 +744,46 @@ fn clear_retained(&self)
 
 ---
 
+## v0.5.1: Unified Versioning & cargo-fa Enhancements
+
+### Version Note
+
+Starting with v0.5.1, `framealloc` and `cargo-fa` share version numbers to simplify tracking. This version bump reflects:
+
+1. **Tooling parity** — The `cargo-fa` static analyzer is now a mature companion tool
+2. **Documentation overhaul** — README professionally reformatted, documentation updated
+3. **Ecosystem alignment** — Library and tool versions now stay in sync
+
+**No runtime code changes** were made to the core allocator in this release. The frame arena, pools, and all allocation APIs remain identical to v0.4.0.
+
+### cargo-fa v0.5.1 Features
+
+Extended output formats for CI integration:
+- `--format junit` — JUnit XML for test reporters
+- `--format checkstyle` — Checkstyle XML for Jenkins
+
+New filtering options:
+- `--deny <CODE>` — Treat specific diagnostic as error
+- `--allow <CODE>` — Suppress specific diagnostic
+- `--exclude <PATTERN>` — Skip paths matching glob
+- `--fail-fast` — Stop on first error
+
+New subcommands:
+- `cargo fa explain FA601` — Detailed explanation with examples
+- `cargo fa show src/file.rs` — Single-file analysis
+- `cargo fa list` — List all diagnostic codes
+- `cargo fa init` — Generate `.fa.toml` configuration
+
+Optimized `--all` check ordering runs fast checks first for better fail-fast behavior.
+
+---
+
+## v0.5.0: Static Analysis with cargo-fa
+
+The `cargo-fa` tool provides build-time detection of memory intent violations. See the [cargo-fa README](cargo-fa/README.md) for full documentation.
+
+---
+
 ## v0.4.0: Memory Behavior Filter
 
 ### Overview

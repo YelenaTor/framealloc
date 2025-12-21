@@ -21,6 +21,10 @@
 
 ---
 
+> **v0.5.1 Note:** This release unifies versioning between `framealloc` and `cargo-fa`. No runtime code changes — the allocator APIs are identical to v0.4.0. Version bump reflects tooling maturity and documentation overhaul. See [TECHNICAL.md](TECHNICAL.md#v051-unified-versioning--cargo-fa-enhancements) for details.
+
+---
+
 ## Overview
 
 **framealloc** is a memory allocation library designed for game engines and real-time applications where predictable performance matters. It combines multiple allocation strategies under a unified API that routes allocations based on expressed intent.
