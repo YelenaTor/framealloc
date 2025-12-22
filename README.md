@@ -115,8 +115,11 @@ emitter.maybe_emit(&snapshot); // Checks for request file
 - Memory inspector sidebar panel
 - Real-time snapshot visualization
 - Tag hierarchy and budget tracking
+- **CodeLens** — Memory usage shown above functions (v0.2.0)
+- **Trend Graphs** — Sparklines showing memory over time (v0.2.0)
+- **Budget Alerts** — Toast warnings at 80%+ usage (v0.2.0)
 
-Install: `code --install-extension fa-insight-0.1.0.vsix` or search "FA Insight" in VS Code marketplace.
+Install: Search "FA Insight" in [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=YelenaTor.fa-insight) or `code --install-extension fa-insight-0.2.0.vsix`.
 
 ### Runtime Behavior Filter
 
