@@ -121,6 +121,38 @@ emitter.maybe_emit(&snapshot); // Checks for request file
 
 Install: Search "FA Insight" in [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=YelenaTor.fa-insight) or `code --install-extension fa-insight-0.2.0.vsix`.
 
+### Tokio Integration (v0.8.0)
+
+Safe async/await patterns with the hybrid model:
+
+```rust
+use framealloc::tokio::{TaskAlloc, AsyncPoolGuard};
+
+// Main thread: frame allocations OK
+alloc.begin_frame();
+let scratch = alloc.frame_vec::<f32>();
+
+// Async tasks: use TaskAlloc (pool-backed, auto-cleanup)
+let alloc_clone = alloc.clone();
+tokio::spawn(async move {
+    let mut task = TaskAlloc::new(&alloc_clone);
+    let data = task.alloc_box(load_asset().await);
+    process(&data).await;
+    // task drops → allocations freed
+});
+
+alloc.end_frame(); // Frame reset, async tasks unaffected
+```
+
+**Key principle:** Frame allocations stay on main thread, async tasks use pool/heap.
+
+Enable with:
+```toml
+framealloc = { version = "0.8", features = ["tokio"] }
+```
+
+See [docs/Tokio-Frame.md](docs/Tokio-Frame.md) for the full async safety guide.
+
 ### Runtime Behavior Filter
 
 ```rust

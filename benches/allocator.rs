@@ -2,7 +2,7 @@
 //!
 //! Run with: cargo bench
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use framealloc::{SmartAlloc, AllocConfig, StreamPriority};
 
 fn bench_frame_alloc(c: &mut Criterion) {

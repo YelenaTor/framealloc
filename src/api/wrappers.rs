@@ -292,7 +292,6 @@ impl<'a, T> DerefMut for FrameSlice<'a, T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::SmartAlloc;
 
     #[test]

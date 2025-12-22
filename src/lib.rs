@@ -37,14 +37,20 @@
 //! alloc.end_frame();
 //! ```
 
+#[allow(dead_code)]
 pub mod api;
+#[allow(dead_code)]
 pub mod diagnostics;
 pub mod handles;
 pub mod streaming;
 
+#[allow(dead_code)]
 mod allocators;
+#[allow(dead_code)]
 mod core;
+#[allow(dead_code)]
 mod sync;
+#[allow(dead_code)]
 mod util;
 
 #[cfg(feature = "bevy")]
@@ -52,6 +58,9 @@ pub mod bevy;
 
 #[cfg(feature = "debug")]
 pub mod debug;
+
+#[cfg(feature = "tokio")]
+pub mod tokio;
 
 // Re-export public API at crate root for convenience
 pub use api::alloc::SmartAlloc;

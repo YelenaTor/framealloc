@@ -4,7 +4,7 @@
 //! with zero overhead when disabled.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::thread::ThreadId;
 use std::time::Instant;
 
@@ -347,6 +347,7 @@ impl<'a> Drop for FrameLifecycleGuard<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
     use std::sync::atomic::AtomicUsize;
 
     #[test]

@@ -5,6 +5,69 @@ All notable changes to `framealloc` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2025-12-23
+
+### Added
+
+#### Tokio Integration: Async-Safe Allocation Patterns
+
+**Feature flag:** `tokio`
+
+Safe async/await patterns using the hybrid model where frame allocations stay on the main thread and async tasks use pool/heap allocations.
+
+**TaskAlloc** — Task-scoped allocations that auto-cleanup when the task completes:
+
+```rust
+use framealloc::tokio::TaskAlloc;
+
+tokio::spawn(async move {
+    let mut task = TaskAlloc::new(&alloc);
+    let data = task.alloc_box(load_asset().await);
+    process(&data).await;
+    // task drops → all allocations freed
+});
+```
+
+**AsyncPoolGuard** — Scoped batch allocations for async contexts:
+
+```rust
+use framealloc::tokio::AsyncPoolGuard;
+
+async fn process_batch(alloc: SmartAlloc) {
+    let guard = AsyncPoolGuard::new(&alloc);
+    let items = guard.alloc_vec::<Item>(100);
+    // guard drops → batch freed
+}
+```
+
+**Types:**
+- `TaskAlloc` — Task-scoped allocator (pool-backed, `Send + Sync`)
+- `TaskBox<T>` — Boxed value owned by TaskAlloc
+- `TaskSlice<T>` — Slice owned by TaskAlloc
+- `AsyncPoolGuard` — Scoped pool allocation guard
+- `GuardedBox<T>` — Boxed value owned by AsyncPoolGuard
+- `GuardedVec<T>` — Vector-like container owned by AsyncPoolGuard
+
+**Documentation:**
+- Added `docs/Tokio-Frame.md` — Comprehensive async safety guide
+- Pattern reference for safe vs unsafe async patterns
+- Integration examples for game engines and Bevy
+
+**cargo-fa Integration:**
+- FA701: Frame allocation in async function (error)
+- FA702: Frame allocation crosses await point (warning)
+- FA703: Frame data captured by spawned task (error)
+
+### Philosophy
+
+The hybrid model respects framealloc's core principles:
+- **Opt-in** — Requires `tokio` feature flag
+- **Safe by default** — TaskAlloc/AsyncPoolGuard use pool, never frame
+- **Explicit** — Clear separation between sync (frame) and async (pool) contexts
+- **Zero-cost when disabled** — No overhead if feature not enabled
+
+---
+
 ## [0.7.1] - 2025-12-23
 
 ### Fixed

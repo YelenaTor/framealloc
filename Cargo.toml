@@ -1,6 +1,6 @@
 [package]
 name = "framealloc"
-version = "0.7.1"
+version = "0.8.0"
 edition = "2021"
 authors = ["YelenaTor"]
 description = "Intent-aware, thread-smart memory allocation for Rust game engines"
@@ -35,6 +35,16 @@ nightly = []
 # Tracks per-tag allocation behavior and detects intent violations
 memory_filter = []
 
+# Tokio integration: async-safe allocation patterns (v0.8.0)
+# Provides TaskAlloc and AsyncPoolGuard for async contexts
+tokio = []
+
+# Extra diagnostics output (verbose logging)
+diagnostics = []
+
+# Log crate integration
+log = ["dep:log"]
+
 [dependencies]
 # Lock-free concurrent queue for deferred frees
 crossbeam-queue = "0.3"
@@ -51,6 +61,9 @@ backtrace = { version = "0.3", optional = true }
 
 # Optional: Tracy profiler
 tracy-client = { version = "0.17", optional = true }
+
+# Optional: log crate integration
+log = { version = "0.4", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"

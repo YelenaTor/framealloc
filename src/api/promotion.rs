@@ -161,6 +161,7 @@ impl<'a> PromotionProcessor<'a> {
     }
     
     /// Process all retained allocations.
+    #[allow(private_interfaces)]
     pub fn process(mut self, retained: Vec<RetainedAllocation>) -> PromotionResult {
         let mut promoted = Vec::with_capacity(retained.len());
         let mut summary = FrameSummary::default();

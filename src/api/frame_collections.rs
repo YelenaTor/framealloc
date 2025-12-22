@@ -340,7 +340,7 @@ impl<'a, K: Eq + std::hash::Hash, V> FrameMap<'a, K, V> {
     }
 
     fn hash_index(&self, key: &K) -> usize {
-        use std::hash::{Hash, Hasher};
+        use std::hash::Hasher;
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         key.hash(&mut hasher);
         hasher.finish() as usize % self.capacity
