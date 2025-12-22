@@ -25,3 +25,6 @@ pub mod deferred_control;
 pub mod lifecycle;
 pub mod thread_budget;
 pub mod transfer;
+
+// v0.7.0: IDE integration and snapshots
+pub mod snapshot;

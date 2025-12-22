@@ -1,6 +1,6 @@
 [package]
 name = "framealloc"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 authors = ["YelenaTor"]
 description = "Intent-aware, thread-smart memory allocation for Rust game engines"
@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/YelenaTor/framealloc"
 homepage = "https://github.com/YelenaTor/framealloc"
 documentation = "https://docs.rs/framealloc"
-keywords = ["allocator", "game-engine", "memory", "frame-allocator", "threading"]
+keywords = ["allocator", "game-engine", "memory", "frame-allocator", "ide-integration"]
 categories = ["memory-management", "game-development", "concurrency"]
 readme = "README.md"
 rust-version = "1.70"

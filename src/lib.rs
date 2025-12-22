@@ -125,6 +125,16 @@ pub use api::thread_budget::{
     BudgetExceededPolicy, BudgetCheckResult,
 };
 pub use api::deferred_control::{
-    DeferredProcessing, DeferredConfig, DeferredController, DeferredStats,
+    DeferredProcessing, DeferredConfig, DeferredController, DeferredStats as DeferredControlStats,
     QueueFullPolicy, QueueResult, DeferredConfigBuilder,
+};
+
+// v0.7.0: IDE integration and snapshots
+pub use api::snapshot::{
+    Snapshot, SnapshotConfig, SnapshotEmitter, SnapshotSummary,
+    ThreadSnapshot, TagSnapshot, BudgetInfo, 
+    PromotionStats as SnapshotPromotionStats, 
+    TransferStats as SnapshotTransferStats,
+    DeferredStats as SnapshotDeferredStats, 
+    RuntimeDiagnostic, SNAPSHOT_VERSION,
 };

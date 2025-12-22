@@ -376,3 +376,72 @@ fn escape_xml(s: &str) -> String {
         .replace('"', "&quot;")
         .replace('\'', "&apos;")
 }
+
+/// Generate full JSON output for fa-insight IDE integration (v0.7.0).
+/// 
+/// This produces the structured JSON format that fa-insight expects,
+/// including diagnostics array and summary statistics.
+pub fn generate_json_report(diagnostics: &[Diagnostic], files_analyzed: usize, duration_ms: u64) -> String {
+    let errors = diagnostics.iter().filter(|d| d.severity == Severity::Error).count();
+    let warnings = diagnostics.iter().filter(|d| d.severity == Severity::Warning).count();
+    let hints = diagnostics.iter().filter(|d| d.severity == Severity::Hint).count();
+    
+    let diag_json: Vec<serde_json::Value> = diagnostics
+        .iter()
+        .map(|d| {
+            let mut obj = serde_json::json!({
+                "code": {
+                    "code": d.code.code,
+                    "category": format!("{:?}", d.code.category)
+                },
+                "severity": match d.severity {
+                    Severity::Error => "error",
+                    Severity::Warning => "warning",
+                    Severity::Hint => "hint",
+                },
+                "message": d.message,
+                "location": {
+                    "file": d.location.file.to_string_lossy(),
+                    "line": d.location.line,
+                    "column": d.location.column,
+                    "end_line": d.location.end_line,
+                    "end_column": d.location.end_column
+                },
+                "notes": d.notes,
+                "related": d.related.iter().map(|r| {
+                    serde_json::json!({
+                        "location": {
+                            "file": r.location.file.to_string_lossy(),
+                            "line": r.location.line,
+                            "column": r.location.column
+                        },
+                        "message": r.message
+                    })
+                }).collect::<Vec<_>>()
+            });
+            
+            if let Some(ref suggestion) = d.suggestion {
+                obj["suggestion"] = serde_json::json!({
+                    "message": suggestion.message,
+                    "replacement": suggestion.replacement,
+                    "applicability": format!("{:?}", suggestion.applicability)
+                });
+            }
+            
+            obj
+        })
+        .collect();
+    
+    let report = serde_json::json!({
+        "diagnostics": diag_json,
+        "summary": {
+            "errors": errors,
+            "warnings": warnings,
+            "hints": hints
+        },
+        "files_analyzed": files_analyzed,
+        "duration_ms": duration_ms
+    });
+    
+    serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string())
+}

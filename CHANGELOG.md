@@ -5,6 +5,84 @@ All notable changes to `framealloc` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-12-22
+
+### Added
+
+#### IDE Integration: FA Insight Support
+
+**Snapshot Emission** — Runtime snapshot support for IDE tooling:
+
+```rust
+use framealloc::{SnapshotConfig, SnapshotEmitter, Snapshot};
+
+// Configure snapshots
+let config = SnapshotConfig::default()
+    .with_directory("target/framealloc")
+    .with_max_snapshots(30);
+
+let emitter = SnapshotEmitter::new(config);
+
+// In your frame loop:
+alloc.end_frame();
+let snapshot = build_snapshot(&alloc, frame_number);
+emitter.maybe_emit(&snapshot); // Checks for request file
+```
+
+Snapshots are:
+- **Opt-in** — Only emitted when explicitly enabled
+- **Aggregated** — No per-allocation data, only summaries
+- **Bounded** — Rate-limited and cleaned up automatically
+- **Safe boundary** — Only captured at frame end
+
+**Snapshot Schema v1** — Structured JSON format for IDE consumption:
+
+```json
+{
+  "version": 1,
+  "frame": 18421,
+  "summary": { "frame_bytes": 4194304, "pool_bytes": 2097152, ... },
+  "threads": [...],
+  "tags": [...],
+  "promotions": { "to_pool": 12, "to_heap": 3, "failed": 1 },
+  "transfers": { "pending": 2, "completed_this_frame": 5 },
+  "deferred": { "queue_depth": 128, "processed_this_frame": 64 },
+  "diagnostics": [...]
+}
+```
+
+#### cargo-fa: JSON Report Format
+
+New `generate_json_report()` function produces structured output for `fa-insight`:
+
+```rust
+// In cargo-fa
+let report = generate_json_report(&diagnostics, files_analyzed, duration_ms);
+println!("{}", report);
+```
+
+Output format matches fa-insight's expected schema with diagnostics array, 
+summary statistics, and analysis metadata.
+
+### Philosophy
+
+v0.7.0 extends framealloc's observability to external tooling while maintaining core principles:
+
+- **Opt-in** — Snapshot feature requires explicit enablement
+- **Explicit** — Clear request/emit cycle, no background work
+- **Zero-cost** — No overhead when snapshots disabled
+- **Deterministic** — Snapshots only at frame boundaries
+
+### Companion Tools
+
+- **fa-insight** — VS Code extension for framealloc-aware IDE experience
+  - Inline diagnostics from cargo-fa
+  - Memory inspector sidebar panel  
+  - Snapshot capture and visualization
+  - Repository: https://github.com/YelenaTor/fa-insight
+
+---
+
 ## [0.6.0] - 2025-12-21
 
 ### Added
