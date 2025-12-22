@@ -93,6 +93,30 @@ barrier.wait_all();
 alloc.set_thread_frame_budget(megabytes(8));
 ```
 
+### IDE Integration (v0.7.0)
+
+```rust
+// Enable snapshot emission for fa-insight
+let snapshot_config = SnapshotConfig::default()
+    .with_directory("target/framealloc")
+    .with_max_snapshots(30);
+
+let emitter = SnapshotEmitter::new(snapshot_config);
+
+// In your frame loop
+alloc.end_frame();
+let snapshot = build_snapshot(&alloc, frame_number);
+emitter.maybe_emit(&snapshot); // Checks for request file
+```
+
+**fa-insight** — VS Code extension for framealloc-aware development:
+- Inline diagnostics from `cargo fa`
+- Memory inspector sidebar panel
+- Real-time snapshot visualization
+- Tag hierarchy and budget tracking
+
+Install: `code --install-extension fa-insight-0.1.0.vsix` or search "FA Insight" in VS Code marketplace.
+
 ### Runtime Behavior Filter
 
 ```rust

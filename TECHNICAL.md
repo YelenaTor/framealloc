@@ -435,6 +435,120 @@ hooks.set_callback(|event| {
 
 ---
 
+## Version History
+
+### v0.7.0: IDE Integration & Snapshot Emission
+
+**Release Date:** 2025-12-22
+
+v0.7.0 extends framealloc's observability to external tooling while maintaining core principles.
+
+#### Snapshot Emission
+
+Runtime snapshot support for IDE integration:
+
+```rust
+use framealloc::{SnapshotConfig, SnapshotEmitter, Snapshot};
+
+// Configure snapshots
+let config = SnapshotConfig::default()
+    .with_directory("target/framealloc")
+    .with_max_snapshots(30);
+
+let emitter = SnapshotEmitter::new(config);
+
+// In your frame loop
+alloc.end_frame();
+let snapshot = Snapshot::new(frame_number);
+// ... populate snapshot from allocator state ...
+emitter.maybe_emit(&snapshot); // Checks for request file
+```
+
+**Snapshot Schema v1:**
+
+```json
+{
+  "version": 1,
+  "frame": 18421,
+  "summary": { "frame_bytes": 4194304, "pool_bytes": 2097152, ... },
+  "threads": [...],
+  "tags": [...],
+  "promotions": { "to_pool": 12, "to_heap": 3, "failed": 1 },
+  "transfers": { "pending": 2, "completed_this_frame": 5 },
+  "deferred": { "queue_depth": 128, "processed_this_frame": 64 },
+  "diagnostics": [...]
+}
+```
+
+**Characteristics:**
+- **Opt-in** — Only emitted when explicitly enabled
+- **Aggregated** — No per-allocation data, only summaries
+- **Bounded** — Rate-limited (min 500ms) and cleaned up automatically
+- **Safe boundary** — Only captured at frame end
+
+#### cargo-fa: JSON Report Format
+
+New `generate_json_report()` function produces structured output for IDE integration:
+
+```rust
+// In cargo-fa
+let report = generate_json_report(&diagnostics, files_analyzed, duration_ms);
+println!("{}", report);
+```
+
+Output format includes diagnostics array, summary statistics, and analysis metadata.
+
+#### fa-insight VS Code Extension
+
+Companion IDE extension for framealloc-aware development:
+- Inline diagnostics from `cargo fa`
+- Memory inspector sidebar panel
+- Real-time snapshot visualization
+- Tag hierarchy and budget tracking
+- Repository: https://github.com/YelenaTor/fa-insight
+
+**Philosophy:** v0.7.0 maintains framealloc's core principles — opt-in, explicit, zero-cost when disabled, deterministic.
+
+---
+
+### v0.6.0: Explicit Thread Coordination & Frame Observability
+
+**Release Date:** 2025-12-21
+
+See detailed section below.
+
+---
+
+### v0.5.1: Unified Versioning & cargo-fa Enhancements
+
+See detailed section below.
+
+---
+
+### v0.5.0: Static Analysis with cargo-fa
+
+See detailed section below.
+
+---
+
+### v0.4.0: Memory Behavior Filter
+
+See detailed section below.
+
+---
+
+### v0.3.0: Frame Retention & Promotion
+
+See detailed section below.
+
+---
+
+### v0.2.0: Frame Phases & Tagged Allocations
+
+See detailed section below.
+
+---
+
 ## v0.2.0 Features
 
 ### Frame Phases
@@ -600,7 +714,7 @@ scratch.reset_all();
 
 ---
 
-## v0.3.0: Frame Retention & Promotion
+## v0.3.0: Frame Retention & Promotion (Detailed)
 
 ### Overview
 
@@ -744,7 +858,7 @@ fn clear_retained(&self)
 
 ---
 
-## v0.6.0: Explicit Thread Coordination & Frame Observability
+## v0.6.0: Explicit Thread Coordination & Frame Observability (Detailed)
 
 ### Design Philosophy
 
@@ -918,7 +1032,7 @@ When enabled:
 
 ---
 
-## v0.5.1: Unified Versioning & cargo-fa Enhancements
+## v0.5.1: Unified Versioning & cargo-fa Enhancements (Detailed)
 
 ### Version Note
 
@@ -952,13 +1066,13 @@ Optimized `--all` check ordering runs fast checks first for better fail-fast beh
 
 ---
 
-## v0.5.0: Static Analysis with cargo-fa
+## v0.5.0: Static Analysis with cargo-fa (Detailed)
 
 The `cargo-fa` tool provides build-time detection of memory intent violations. See the [cargo-fa README](cargo-fa/README.md) for full documentation.
 
 ---
 
-## v0.4.0: Memory Behavior Filter
+## v0.4.0: Memory Behavior Filter (Detailed)
 
 ### Overview
 
