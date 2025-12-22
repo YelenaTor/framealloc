@@ -5,6 +5,37 @@ All notable changes to `framealloc` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2025-12-23
+
+### Fixed
+
+- **Critical JSON escaping bug** — Strings containing quotes, backslashes, or newlines now properly escaped in snapshot JSON output
+- **Rate limiting race condition** — Mutex now held across check and update to prevent multiple threads emitting within `min_interval`
+
+### Added
+
+- `escape_json_str()` — Proper JSON string escaping for all special characters
+- `Snapshot::with_duration()` — Builder method to set frame timing
+- `Snapshot::with_summary()` — Builder method to set summary data
+- `Snapshot::add_thread()`, `add_tag()`, `add_diagnostic()` — Mutation methods
+- `SnapshotEmitter::config()` — Access to emitter configuration
+- `SnapshotEmitter::clear_all_snapshots()` — Utility to remove all snapshots
+
+### Changed
+
+- Snapshot filename format changed from 8 to 16 digits (supports longer sessions)
+- Cleanup now runs every 5 emissions instead of every emit (reduced I/O)
+- Added thread safety documentation to `SnapshotEmitter`
+- Documented ISO8601 approximation limitations
+
+### Tests
+
+- Added comprehensive tests for JSON escaping (quotes, backslashes, newlines, tabs)
+- Added test for snapshots with special characters
+- Added test for `with_duration()` builder
+
+---
+
 ## [0.7.0] - 2025-12-22
 
 ### Added

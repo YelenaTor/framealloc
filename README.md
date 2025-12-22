@@ -10,6 +10,7 @@
   <a href="https://docs.rs/framealloc"><img src="https://img.shields.io/docsrs/framealloc?style=flat-square" alt="Documentation"></a>
   <a href="#license"><img src="https://img.shields.io/crates/l/framealloc?style=flat-square" alt="License"></a>
   <a href="https://github.com/YelenaTor/framealloc/actions"><img src="https://img.shields.io/github/actions/workflow/status/YelenaTor/framealloc/ci.yml?style=flat-square" alt="CI"></a>
+  <a href="https://x.com/YelenaTor27021"><img src="https://img.shields.io/badge/X-@YelenaTor27021-1DA1F2?style=flat-square&logo=x" alt="X/Twitter"></a>
 </p>
 
 <p align="center">
