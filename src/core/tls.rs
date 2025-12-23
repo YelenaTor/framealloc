@@ -75,17 +75,114 @@ impl ThreadLocalState {
     /// Allocate from frame arena.
     pub fn frame_alloc<T>(&mut self) -> *mut T {
         let ptr = self.frame.alloc::<T>();
+        #[cfg(not(feature = "minimal"))]
         if !ptr.is_null() {
             self.stats.record_alloc(std::mem::size_of::<T>());
         }
+        #[cfg(all(target_arch = "x86_64", feature = "prefetch"))]
+        if !ptr.is_null() {
+            // Prefetch for write - brings cache line into L1
+            unsafe { std::arch::x86_64::_mm_prefetch(ptr as *const i8, std::arch::x86_64::_MM_HINT_T0); }
+        }
         ptr
+    }
+
+    /// Fallible allocation from frame arena.
+    /// 
+    /// Returns None on OOM instead of returning null.
+    pub fn try_frame_alloc<T>(&mut self) -> Option<*mut T> {
+        let ptr = self.frame.alloc::<T>();
+        #[cfg(not(feature = "minimal"))]
+        if !ptr.is_null() {
+            self.stats.record_alloc(std::mem::size_of::<T>());
+        }
+        #[cfg(all(target_arch = "x86_64", feature = "prefetch"))]
+        if !ptr.is_null() {
+            // Prefetch for write - brings cache line into L1
+            unsafe { std::arch::x86_64::_mm_prefetch(ptr as *const i8, std::arch::x86_64::_MM_HINT_T0); }
+        }
+        if ptr.is_null() {
+            None
+        } else {
+            Some(ptr)
+        }
     }
 
     /// Allocate a slice from frame arena.
     pub fn frame_alloc_slice<T>(&mut self, count: usize) -> *mut T {
         let ptr = self.frame.alloc_slice::<T>(count);
+        #[cfg(not(feature = "minimal"))]
         if !ptr.is_null() {
             self.stats.record_alloc(std::mem::size_of::<T>() * count);
+        }
+        #[cfg(all(target_arch = "x86_64", feature = "prefetch"))]
+        if !ptr.is_null() && count > 0 {
+            // Prefetch first cache line
+            unsafe { std::arch::x86_64::_mm_prefetch(ptr as *const i8, std::arch::x86_64::_MM_HINT_T0); }
+        }
+        ptr
+    }
+
+    /// Allocate N instances of T with single bookkeeping update.
+    /// 
+    /// Returns a pointer to uninitialized memory for N values.
+    /// More efficient than N separate allocations when statistics are enabled.
+    pub fn frame_alloc_batch<T>(&mut self, count: usize) -> *mut T {
+        let ptr = self.frame.alloc_slice::<T>(count);
+        #[cfg(not(feature = "minimal"))]
+        if !ptr.is_null() {
+            // Single bookkeeping update for all allocations
+            self.stats.record_alloc(std::mem::size_of::<T>() * count);
+        }
+        #[cfg(all(target_arch = "x86_64", feature = "prefetch"))]
+        if !ptr.is_null() && count > 0 {
+            // Prefetch first cache line
+            unsafe { std::arch::x86_64::_mm_prefetch(ptr as *const i8, std::arch::x86_64::_MM_HINT_T0); }
+        }
+        ptr
+    }
+
+    /// Allocate 2 instances of T with optimized single allocation.
+    #[inline(always)]
+    pub fn frame_alloc_2<T>(&mut self) -> *mut [T; 2] {
+        let ptr = self.frame.alloc_slice::<T>(2) as *mut [T; 2];
+        #[cfg(not(feature = "minimal"))]
+        if !ptr.is_null() {
+            self.stats.record_alloc(std::mem::size_of::<T>() * 2);
+        }
+        #[cfg(all(target_arch = "x86_64", feature = "prefetch"))]
+        if !ptr.is_null() {
+            unsafe { std::arch::x86_64::_mm_prefetch(ptr as *const i8, std::arch::x86_64::_MM_HINT_T0); }
+        }
+        ptr
+    }
+
+    /// Allocate 4 instances of T with optimized single allocation.
+    #[inline(always)]
+    pub fn frame_alloc_4<T>(&mut self) -> *mut [T; 4] {
+        let ptr = self.frame.alloc_slice::<T>(4) as *mut [T; 4];
+        #[cfg(not(feature = "minimal"))]
+        if !ptr.is_null() {
+            self.stats.record_alloc(std::mem::size_of::<T>() * 4);
+        }
+        #[cfg(all(target_arch = "x86_64", feature = "prefetch"))]
+        if !ptr.is_null() {
+            unsafe { std::arch::x86_64::_mm_prefetch(ptr as *const i8, std::arch::x86_64::_MM_HINT_T0); }
+        }
+        ptr
+    }
+
+    /// Allocate 8 instances of T with optimized single allocation.
+    #[inline(always)]
+    pub fn frame_alloc_8<T>(&mut self) -> *mut [T; 8] {
+        let ptr = self.frame.alloc_slice::<T>(8) as *mut [T; 8];
+        #[cfg(not(feature = "minimal"))]
+        if !ptr.is_null() {
+            self.stats.record_alloc(std::mem::size_of::<T>() * 8);
+        }
+        #[cfg(all(target_arch = "x86_64", feature = "prefetch"))]
+        if !ptr.is_null() {
+            unsafe { std::arch::x86_64::_mm_prefetch(ptr as *const i8, std::arch::x86_64::_MM_HINT_T0); }
         }
         ptr
     }
@@ -116,6 +213,7 @@ impl ThreadLocalState {
     /// Allocate from frame arena with a specific layout.
     pub fn frame_alloc_layout(&mut self, layout: std::alloc::Layout) -> *mut u8 {
         let ptr = self.frame.alloc_layout(layout);
+        #[cfg(not(feature = "minimal"))]
         if !ptr.is_null() {
             self.stats.record_alloc(layout.size());
         }

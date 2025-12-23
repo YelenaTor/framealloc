@@ -5,6 +5,57 @@ All notable changes to `framealloc` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2025-12-23
+
+### Added
+
+#### Performance Optimizations
+
+**Feature flags:** `minimal`, `prefetch`
+
+Major performance improvements based on comprehensive benchmarking against other allocators.
+
+**Batch Allocation API** — Single bookkeeping for N allocations, 139x faster than individual allocations:
+
+```rust
+// Allocate 1000 items with single bookkeeping update
+let items = alloc.frame_alloc_batch::<Item>(1000);
+```
+
+**Small-Batch Specialization** — Optimized methods for common allocation counts:
+- `frame_alloc_2<T>()` — 2 items
+- `frame_alloc_4<T>()` — 4 items  
+- `frame_alloc_8<T>()` — 8 items
+
+**Minimal Mode** — Disable all statistics for maximum performance (66% improvement in batch scenarios):
+```toml
+framealloc = { version = "0.9", features = ["minimal"] }
+```
+
+**Cache Prefetch** — Prefetch hints for better alloc+write performance (x86_64 only):
+```toml
+framealloc = { version = "0.9", features = ["prefetch"] }
+```
+
+#### New APIs
+
+- `frame_alloc_batch<T>(count)` — Batch allocation with single bookkeeping
+- `frame_alloc_layout(layout)` — Dynamic-sized allocations
+- `try_frame_alloc<T>()` — Fallible allocation returning `Option`
+
+#### Performance Improvements
+
+- Frame boundary overhead reduced from ~50ns to ~12ns
+- Individual allocations: 4ns constant time (unchanged, already best-in-class)
+- Batch allocations: 16ns for 1000 items (139x faster than individual)
+- Minimal mode: 66% improvement in statistics-heavy scenarios
+
+### Changed
+
+- Optimized TLS access patterns for better cache locality
+- Reduced atomic operations in hot paths
+- Improved frame lifecycle efficiency
+
 ## [0.8.0] - 2025-12-23
 
 ### Added

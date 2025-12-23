@@ -22,7 +22,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Run benchmarks
-        run: cargo bench --bench allocators -- --output-format bencher | tee output.txt
+        run: |
+          cargo bench --bench allocators -- --output-format bencher | tee output.txt
+          cargo bench --bench optimizations --features "minimal,prefetch" -- --output-format bencher | tee -a output.txt
 
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1

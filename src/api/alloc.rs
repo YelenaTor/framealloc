@@ -132,9 +132,83 @@ impl SmartAlloc {
         self.frame_alloc_with_intent::<T>(AllocationIntent::Frame)
     }
 
+    /// Fallible allocation from frame arena.
+    ///
+    /// Returns None on OOM instead of returning null.
+    /// The memory is valid until `end_frame()` is called.
+    pub fn try_frame_alloc<T>(&self) -> Option<*mut T> {
+        tls::with_tls(|tls| tls.try_frame_alloc::<T>())
+    }
+
     /// Allocate memory from the frame arena with explicit intent.
     pub fn frame_alloc_with_intent<T>(&self, _intent: AllocationIntent) -> *mut T {
         tls::with_tls(|tls| tls.frame_alloc::<T>())
+    }
+
+    /// Allocate from frame arena with a specific layout.
+    ///
+    /// Returns a raw pointer to uninitialized memory.
+    /// Memory is valid until `end_frame()` is called.
+    /// 
+    /// # Safety
+    /// 
+    /// The caller must ensure the layout has non-zero size.
+    /// The returned pointer must be used according to the layout's alignment.
+    pub unsafe fn frame_alloc_layout(&self, layout: std::alloc::Layout) -> *mut u8 {
+        tls::with_tls(|tls| tls.frame_alloc_layout(layout))
+    }
+
+    /// Allocate N instances of T with single bookkeeping update.
+    /// 
+    /// Returns a raw pointer to uninitialized memory for N values.
+    /// More efficient than N separate allocations when statistics are enabled.
+    /// Memory is valid until `end_frame()` is called.
+    /// 
+    /// # Safety
+    /// 
+    /// The returned pointer is valid only until `end_frame()` is called.
+    /// Using the pointer after that is undefined behavior.
+    pub fn frame_alloc_batch<T>(&self, count: usize) -> *mut T {
+        tls::with_tls(|tls| tls.frame_alloc_batch::<T>(count))
+    }
+
+    /// Allocate 2 instances of T with optimized single allocation.
+    /// 
+    /// Returns a raw pointer to uninitialized memory for 2 values.
+    /// Memory is valid until `end_frame()` is called.
+    /// 
+    /// # Safety
+    /// 
+    /// The returned pointer is valid only until `end_frame()` is called.
+    /// Using the pointer after that is undefined behavior.
+    pub fn frame_alloc_2<T>(&self) -> *mut [T; 2] {
+        tls::with_tls(|tls| tls.frame_alloc_2::<T>())
+    }
+
+    /// Allocate 4 instances of T with optimized single allocation.
+    /// 
+    /// Returns a raw pointer to uninitialized memory for 4 values.
+    /// Memory is valid until `end_frame()` is called.
+    /// 
+    /// # Safety
+    /// 
+    /// The returned pointer is valid only until `end_frame()` is called.
+    /// Using the pointer after that is undefined behavior.
+    pub fn frame_alloc_4<T>(&self) -> *mut [T; 4] {
+        tls::with_tls(|tls| tls.frame_alloc_4::<T>())
+    }
+
+    /// Allocate 8 instances of T with optimized single allocation.
+    /// 
+    /// Returns a raw pointer to uninitialized memory for 8 values.
+    /// Memory is valid until `end_frame()` is called.
+    /// 
+    /// # Safety
+    /// 
+    /// The returned pointer is valid only until `end_frame()` is called.
+    /// Using the pointer after that is undefined behavior.
+    pub fn frame_alloc_8<T>(&self) -> *mut [T; 8] {
+        tls::with_tls(|tls| tls.frame_alloc_8::<T>())
     }
 
     /// Allocate a value from the small object pool.

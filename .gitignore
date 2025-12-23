@@ -10,6 +10,7 @@ Cargo.lock
 *.swo
 *~
 .DS_Store
+ELEVATE.md
 
 # Build artifacts
 *.o

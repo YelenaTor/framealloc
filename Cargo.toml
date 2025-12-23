@@ -1,6 +1,6 @@
 [package]
 name = "framealloc"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2021"
 authors = ["YelenaTor"]
 description = "Intent-aware, thread-smart memory allocation for Rust game engines"
@@ -45,6 +45,12 @@ diagnostics = []
 # Log crate integration
 log = ["dep:log"]
 
+# Minimal mode: No statistics or bookkeeping for maximum performance
+minimal = []
+
+# Cache prefetch hints for better alloc+write performance (x86_64 only)
+prefetch = []
+
 [dependencies]
 # Lock-free concurrent queue for deferred frees
 crossbeam-queue = "0.3"
@@ -75,4 +81,12 @@ harness = false
 
 [[bench]]
 name = "allocators"
+harness = false
+
+[[bench]]
+name = "minimal_mode"
+harness = false
+
+[[bench]]
+name = "optimizations"
 harness = false

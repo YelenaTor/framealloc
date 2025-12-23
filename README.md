@@ -153,6 +153,49 @@ framealloc = { version = "0.8", features = ["tokio"] }
 
 See [docs/Tokio-Frame.md](docs/Tokio-Frame.md) for the full async safety guide.
 
+### Performance Optimizations (v0.9.0)
+
+#### Batch Allocations
+For hot loops with multiple allocations, use batch APIs for maximum performance:
+
+```rust
+// Instead of:
+for _ in 0..1000 {
+    let item = alloc.frame_alloc::<Item>();
+    // ...
+}
+
+// Use batch allocation (139x faster):
+let items = alloc.frame_alloc_batch::<Item>(1000);
+for i in 0..1000 {
+    let item = unsafe { items.add(i) };
+    // ...
+}
+```
+
+#### Minimal Mode
+Disable statistics for maximum performance in production:
+
+```toml
+framealloc = { version = "0.9", features = ["minimal"] }
+```
+
+#### Cache Prefetch
+Enable cache prefetch hints for better alloc+write patterns (x86_64 only):
+
+```toml
+framealloc = { version = "0.9", features = ["prefetch"] }
+```
+
+#### Specialized Batch Sizes
+For known small counts, use specialized methods:
+
+```rust
+let pair = alloc.frame_alloc_2::<T>();      // 2 items
+let quad = alloc.frame_alloc_4::<T>();      // 4 items
+let octet = alloc.frame_alloc_8::<T>();     // 8 items
+```
+
 ### Runtime Behavior Filter
 
 ```rust
