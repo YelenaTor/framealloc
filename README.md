@@ -153,75 +153,6 @@ framealloc = { version = "0.9", features = ["tokio"] }
 
 See [docs/Tokio-Frame.md](docs/Tokio-Frame.md) for the full async safety guide.
 
-### Rapier Physics Integration (v0.10.0)
-
-Frame-aware wrappers for Rapier physics engine v0.31, enabling high-performance bulk allocations:
-
-```rust
-use framealloc::{SmartAlloc, rapier::PhysicsWorld2D};
-use rapier2d::dynamics::{RigidBodyBuilder};
-use rapier2d::geometry::{ColliderBuilder};
-
-let alloc = SmartAlloc::new(Default::default());
-let mut physics = PhysicsWorld2D::new();
-
-alloc.begin_frame();
-
-// Create bodies using frame allocation for temporary data
-let body = physics.insert_body(
-    RigidBodyBuilder::dynamic().translation(0.0, 5.0),
-    ColliderBuilder::ball(1.0),
-    &alloc
-);
-
-// Step physics with frame-allocated contact buffers
-let events = physics.step_with_events(&alloc);
-
-// Process collision events (valid until end_frame)
-for contact in events.contacts {
-    println!("Contact between {:?}", contact);
-}
-
-// Ray casting with frame-allocated results
-use rapier2d::geometry::Ray;
-use rapier2d::na::Vector2;
-use rapier2d::pipeline::QueryFilter;
-
-let ray = Ray::new(
-    rapier2d::na::Point2::new(0.0, 5.0),
-    Vector2::new(0.0, -1.0)
-);
-let hits = physics.cast_ray(&ray, 100.0, true, &QueryFilter::default(), &alloc);
-for hit in hits {
-    println!("Hit at distance: {}", hit.time_of_impact);
-}
-
-alloc.end_frame(); // All physics data automatically freed
-```
-
-**Features:**
-- Frame-allocated contact and proximity events
-- Bulk allocation for query results using `frame_alloc_batch`
-- Updated for Rapier v0.31 API (BroadPhaseBvh, QueryFilter changes)
-- Automatic cleanup at frame boundaries
-- Support for both 2D and 3D physics
-
-**Performance:**
-- Contact buffers: 139x faster than individual allocations
-- Query results: Single bulk allocation per query
-- Zero manual memory management
-
-**API Changes in v0.31:**
-- `BroadPhase` renamed to `BroadPhaseBvh`
-- `QueryFilter` moved from `geometry` to `pipeline` module
-- `PhysicsPipeline::step` signature updated (removed `None` parameter)
-- Ray casting now uses `as_query_pipeline` method
-
-Enable with:
-```toml
-framealloc = { version = "0.10", features = ["rapier"] }
-```
-
 ### Performance Optimizations (v0.9.0)
 
 #### Batch Allocations
@@ -338,6 +269,75 @@ let report = alloc.behavior_report();
 for issue in &report.issues {
     eprintln!("[{}] {}", issue.code, issue.message);
 }
+```
+
+### Rapier Physics Integration (v0.10.0)
+
+Frame-aware wrappers for Rapier physics engine v0.31, enabling high-performance bulk allocations:
+
+```rust
+use framealloc::{SmartAlloc, rapier::PhysicsWorld2D};
+use rapier2d::dynamics::{RigidBodyBuilder};
+use rapier2d::geometry::{ColliderBuilder};
+
+let alloc = SmartAlloc::new(Default::default());
+let mut physics = PhysicsWorld2D::new();
+
+alloc.begin_frame();
+
+// Create bodies using frame allocation for temporary data
+let body = physics.insert_body(
+    RigidBodyBuilder::dynamic().translation(0.0, 5.0),
+    ColliderBuilder::ball(1.0),
+    &alloc
+);
+
+// Step physics with frame-allocated contact buffers
+let events = physics.step_with_events(&alloc);
+
+// Process collision events (valid until end_frame)
+for contact in events.contacts {
+    println!("Contact between {:?}", contact);
+}
+
+// Ray casting with frame-allocated results
+use rapier2d::geometry::Ray;
+use rapier2d::na::Vector2;
+use rapier2d::pipeline::QueryFilter;
+
+let ray = Ray::new(
+    rapier2d::na::Point2::new(0.0, 5.0),
+    Vector2::new(0.0, -1.0)
+);
+let hits = physics.cast_ray(&ray, 100.0, true, &QueryFilter::default(), &alloc);
+for hit in hits {
+    println!("Hit at distance: {}", hit.time_of_impact);
+}
+
+alloc.end_frame(); // All physics data automatically freed
+```
+
+**Features:**
+- Frame-allocated contact and proximity events
+- Bulk allocation for query results using `frame_alloc_batch`
+- Updated for Rapier v0.31 API (BroadPhaseBvh, QueryFilter changes)
+- Automatic cleanup at frame boundaries
+- Support for both 2D and 3D physics
+
+**Performance:**
+- Contact buffers: 139x faster than individual allocations
+- Query results: Single bulk allocation per query
+- Zero manual memory management
+
+**API Changes in v0.31:**
+- `BroadPhase` renamed to `BroadPhaseBvh`
+- `QueryFilter` moved from `geometry` to `pipeline` module
+- `PhysicsPipeline::step` signature updated (removed `None` parameter)
+- Ray casting now uses `as_query_pipeline` method
+
+Enable with:
+```toml
+framealloc = { version = "0.10", features = ["rapier"] }
 ```
 
 ---
