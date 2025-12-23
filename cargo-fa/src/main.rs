@@ -106,6 +106,7 @@ fn handle_subcommand(cmd: &Command, args: &Args) -> Result<()> {
                     all_diags.extend(lints::threading::check(&ast, file, &config));
                     all_diags.extend(lints::budgets::check(&ast, file, &config));
                     all_diags.extend(lints::async_safety::check(&ast, file, &config));
+                    all_diags.extend(lints::gpu::check(&ast, file, &config));
                     all_diags.extend(lints::architecture::check(&ast, file, &config));
                     all_diags.extend(lints::rapier::check(&ast, file, &config));
                     
@@ -269,7 +270,12 @@ impl Analyzer {
             diagnostics.extend(lints::async_safety::check(ast, path, &self.config));
         }
         
-        // 5. Threading (most complex - control flow analysis)
+        // 5. GPU memory safety (checks for staging buffer leaks, transfer issues)
+        if self.args.gpu || self.args.all {
+            diagnostics.extend(lints::gpu::check(ast, path, &self.config));
+        }
+        
+        // 6. Threading (most complex - control flow analysis)
         if self.args.threading || self.args.all {
             diagnostics.extend(lints::threading::check(ast, path, &self.config));
         }

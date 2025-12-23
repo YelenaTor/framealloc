@@ -523,6 +523,218 @@ for item in items.iter().take(MAX_ITEMS) {
             see_also: &["FA602"],
         }),
         
+        "FA801" => Some(Explanation {
+            code: "FA801",
+            name: "staging-buffer-leak",
+            category: "GPU",
+            severity: "warning",
+            summary: "Staging buffer not freed before frame end",
+            description: r#"
+Staging buffers are temporary CPU-side buffers used to transfer data to the GPU.
+They should be freed or transferred before end_frame() to avoid memory leaks.
+
+Unfreed staging buffers accumulate in GPU memory, leading to:
+- Increased memory usage
+- Potential out-of-memory errors
+- Reduced performance due to memory fragmentation
+
+This commonly happens when:
+- Creating staging buffers but forgetting to transfer them
+- Storing staging buffer references beyond the frame
+- Missing end_frame() calls
+"#,
+            example_bad: r#"
+fn upload_vertices(alloc: &mut UnifiedAllocator) {
+    let staging = alloc.create_staging_buffer(1024).unwrap();
+    // Fill staging buffer...
+    // FA801: staging buffer not transferred or freed before frame end
+    alloc.end_frame();  // staging buffer leaks!
+}
+"#,
+            example_good: r#"
+fn upload_vertices(alloc: &mut UnifiedAllocator) {
+    let staging = alloc.create_staging_buffer(1024).unwrap();
+    // Fill staging buffer...
+    
+    // Transfer to GPU (frees staging buffer)
+    alloc.transfer_to_gpu(&mut staging).unwrap();
+    alloc.end_frame();  // No leak
+}
+"#,
+            see_also: &["FA802", "FA803"],
+        }),
+        
+        "FA802" => Some(Explanation {
+            code: "FA802",
+            name: "missing-transfer-usage",
+            category: "GPU",
+            severity: "error",
+            summary: "GPU buffer created without transfer usage flags",
+            description: r#"
+Device-local GPU buffers cannot be accessed directly by the CPU.
+To transfer data to them, they must be created with TRANSFER_DST usage.
+
+Without TRANSFER_DST:
+- transfer_to_gpu() will fail at runtime
+- CPU data cannot be copied to the buffer
+- The buffer remains uninitialized
+
+This is required for:
+- Vertex buffers
+- Index buffers
+- Uniform buffers
+- Storage buffers that receive CPU data
+"#,
+            example_bad: r#"
+// FA802: Missing TRANSFER_DST usage
+let gpu_buffer = alloc.create_gpu_buffer(
+    1024,
+    BufferUsage::VERTEX_BUFFER,  // Missing TRANSFER_DST
+    MemoryType::DeviceLocal,
+).unwrap();
+"#,
+            example_good: r#"
+// Correct: Include TRANSFER_DST for CPU-GPU transfers
+let gpu_buffer = alloc.create_gpu_buffer(
+    1024,
+    BufferUsage::VERTEX_BUFFER | BufferUsage::TRANSFER_DST,
+    MemoryType::DeviceLocal,
+).unwrap();
+"#,
+            see_also: &["FA801", "FA804"],
+        }),
+        
+        "FA803" => Some(Explanation {
+            code: "FA803",
+            name: "missing-synchronization",
+            category: "GPU",
+            severity: "warning",
+            summary: "CPU-GPU transfer without synchronization barrier",
+            description: r#"
+GPU operations execute asynchronously. Without proper synchronization,
+you may access data before the GPU has finished writing to it.
+
+Missing synchronization can cause:
+- Data corruption
+- Access violations
+- Visual artifacts in graphics
+- Crashes
+
+Always ensure:
+- GPU commands are submitted before reading back data
+- Proper barriers are in place for read-after-write hazards
+- Fence or semaphore synchronization when needed
+"#,
+            example_bad: r#"
+let staging = alloc.create_staging_buffer(1024).unwrap();
+alloc.transfer_to_gpu(&mut staging).unwrap();
+
+// FA803: No synchronization - GPU might still be writing
+unsafe { read_gpu_data(gpu_buffer); }  // Potential data corruption!
+"#,
+            example_good: r#"
+let staging = alloc.create_staging_buffer(1024).unwrap();
+alloc.transfer_to_gpu(&mut staging).unwrap();
+
+// Wait for GPU to complete transfer
+let barrier = CpuGpuBarrier::new();
+barrier.wait_current_frame();
+
+// Now safe to read
+unsafe { read_gpu_data(gpu_buffer); }
+"#,
+            see_also: &["FA801", "FA802"],
+        }),
+        
+        "FA804" => Some(Explanation {
+            code: "FA804",
+            name: "device-local-mapped",
+            category: "GPU",
+            severity: "error",
+            summary: "Device-local buffer mapped for CPU access",
+            description: r#"
+Device-local memory is optimized for GPU access and cannot be mapped
+for direct CPU access. Attempting to map it will fail at runtime.
+
+Device-local memory characteristics:
+- Fast GPU access
+- No CPU access
+- Cannot be mapped
+- Requires staging buffers for data transfer
+
+For CPU-accessible memory, use:
+- MemoryType::HostVisible - CPU can map and read/write
+- MemoryType::HostCoherent - CPU writes are automatically visible to GPU
+"#,
+            example_bad: r#"
+// FA804: Device-local memory cannot be mapped
+let gpu_buffer = alloc.create_gpu_buffer(
+    1024,
+    BufferUsage::VERTEX_BUFFER | BufferUsage::TRANSFER_DST,
+    MemoryType::DeviceLocal,
+).unwrap();
+
+let ptr = gpu_buffer.map();  // Runtime error!
+"#,
+            example_good: r#"
+// Use host-visible memory for CPU mapping
+let cpu_buffer = alloc.create_gpu_buffer(
+    1024,
+    BufferUsage::VERTEX_BUFFER,
+    MemoryType::HostVisible,
+).unwrap();
+
+let ptr = cpu_buffer.map();  // OK!
+"#,
+            see_also: &["FA802", "FA805"],
+        }),
+        
+        "FA805" => Some(Explanation {
+            code: "FA805",
+            name: "staging-buffer-reuse",
+            category: "GPU",
+            severity: "warning",
+            summary: "Staging buffer reused across frames without reset",
+            description: r#"
+Reusing staging buffers across frames without proper reset can lead to:
+- Data corruption from previous frame
+- Stale data being transferred
+- Memory leaks if not properly managed
+
+Best practices:
+- Create fresh staging buffers each frame, OR
+- Properly reset buffers with begin_frame()
+- Never store staging buffer references across frames
+"#,
+            example_bad: r#"
+struct Renderer {
+    staging_buffer: Option<UnifiedBuffer>,  // FA805: Persists across frames
+}
+
+impl Renderer {
+    fn upload(&mut self, data: &[u8]) {
+        if self.staging_buffer.is_none() {
+            self.staging_buffer = Some(create_staging_buffer());
+        }
+        
+        // Buffer contains stale data from previous frame!
+        let buffer = self.staging_buffer.as_mut().unwrap();
+        buffer.cpu_slice_mut().unwrap().copy_from_slice(data);
+    }
+}
+"#,
+            example_good: r#"
+fn upload_frame(alloc: &mut UnifiedAllocator, data: &[u8]) {
+    // Fresh buffer each frame
+    let staging = alloc.create_staging_buffer(data.len()).unwrap();
+    staging.cpu_slice_mut().unwrap().copy_from_slice(data);
+    alloc.transfer_to_gpu(&mut staging).unwrap();
+    // Buffer automatically freed when dropped
+}
+"#,
+            see_also: &["FA801", "FA804"],
+        }),
+        
         _ => None,
     }
 }
@@ -598,9 +810,14 @@ pub fn list_all_codes(category_filter: Option<&str>) {
         ("FA701", "Async", "Frame allocation in async function"),
         ("FA702", "Async", "Frame allocation crosses await"),
         ("FA703", "Async", "FrameBox captured by closure"),
-        ("FA801", "Architecture", "Tag mismatch"),
-        ("FA802", "Architecture", "Unknown tag"),
-        ("FA803", "Architecture", "Cross-module allocation"),
+        ("FA801", "GPU", "Staging buffer not freed before frame end"),
+        ("FA802", "GPU", "GPU buffer created without transfer usage flags"),
+        ("FA803", "GPU", "CPU-GPU transfer without synchronization barrier"),
+        ("FA804", "GPU", "Device-local buffer mapped for CPU access"),
+        ("FA805", "GPU", "Staging buffer reused across frames without reset"),
+        ("FA901", "Architecture", "Tag mismatch"),
+        ("FA902", "Architecture", "Unknown tag"),
+        ("FA903", "Architecture", "Cross-module allocation"),
     ];
     
     println!();

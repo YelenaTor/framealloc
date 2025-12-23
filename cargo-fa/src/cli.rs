@@ -57,7 +57,14 @@ pub struct Args {
     #[arg(long)]
     pub async_safety: bool,
 
-    /// Check for architecture violations (FA8xx)
+    /// Check for GPU memory issues (FA8xx)
+    /// - Staging buffer leaks
+    /// - Missing transfer usage
+    /// - Device-local mapping errors
+    #[arg(long)]
+    pub gpu: bool,
+
+    /// Check for architecture violations (FA9xx)
     /// - Tag mismatches
     /// - Module boundary violations
     #[arg(long)]

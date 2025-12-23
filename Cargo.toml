@@ -1,6 +1,6 @@
 [package]
 name = "framealloc"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2021"
 authors = ["YelenaTor"]
 description = "Intent-aware, thread-smart memory allocation for Rust game engines"
@@ -15,6 +15,15 @@ rust-version = "1.70"
 
 [features]
 default = []
+
+# GPU support (meta-feature)
+gpu = []
+
+# Vulkan backend for GPU allocation
+gpu-vulkan = ["gpu", "dep:ash", "dep:gpu-allocator"]
+
+# Coordinator for CPU-GPU memory management
+coordinator = ["gpu"]
 
 # Use parking_lot for faster mutexes
 parking_lot = ["dep:parking_lot"]
@@ -80,6 +89,10 @@ log = { version = "0.4", optional = true }
 # Optional: Rapier physics engine integration
 rapier2d = { version = "0.31", optional = true }
 rapier3d = { version = "0.31", optional = true }
+
+# Optional: Vulkan backend for GPU allocation
+ash = { version = "0.37", optional = true }
+gpu-allocator = { version = "0.25", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"

@@ -5,6 +5,28 @@ All notable changes to `framealloc` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2025-12-23
+
+### Added
+- **GPU Support**: Unified CPU-GPU memory management architecture
+  - New `gpu` module with backend-agnostic traits
+  - Vulkan backend implementation (`gpu-vulkan` feature)
+  - Coordinator module for unified allocation (`coordinator` feature)
+  - Zero overhead for CPU-only users (no new dependencies)
+  - Explicit CPU-GPU transfer operations
+  - Unified memory budgeting across CPU and GPU
+
+### Changed
+- Refactored internal module structure:
+  - CPU functionality moved to `cpu/` module
+  - All existing APIs remain backward compatible
+  - Feature flags now properly gate GPU components
+
+### Feature Flags
+- `gpu` - Enable GPU module (meta-feature)
+- `gpu-vulkan` - Enable Vulkan backend for GPU allocation
+- `coordinator` - Enable unified CPU-GPU memory coordination
+
 ## [0.10.0] - 2025-12-23
 
 ### Added
@@ -143,7 +165,7 @@ async fn process_batch(alloc: SmartAlloc) {
 - `GuardedVec<T>` — Vector-like container owned by AsyncPoolGuard
 
 **Documentation:**
-- Added `docs/Tokio-Frame.md` — Comprehensive async safety guide
+- Added `docs/async.md` — Comprehensive async safety guide
 - Pattern reference for safe vs unsafe async patterns
 - Integration examples for game engines and Bevy
 

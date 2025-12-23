@@ -14,10 +14,12 @@
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> •
+  <a href="#why-framealloc">Why</a> •
+  <a href="#documentation--learning-path">Docs</a> •
   <a href="#quick-start">Quick Start</a> •
-  <a href="#static-analysis">Static Analysis</a> •
-  <a href="#documentation">Documentation</a>
+  <a href="#features">Features</a> •
+  <a href="#gpu-support">GPU Support</a> •
+  <a href="#static-analysis">Static Analysis</a>
 </p>
 
 ---
@@ -37,6 +39,158 @@
 | **Thread Coordination** | Explicit transfers, barriers, per-thread budgets |
 | **Static Analysis** | `cargo fa` catches memory mistakes at build time |
 | **Runtime Diagnostics** | Behavior filter detects pattern violations |
+
+---
+
+## Why framealloc?
+
+Traditional allocators (malloc, jemalloc) optimize for general-case throughput. Game engines have different needs:
+
+**The Problem:**
+```rust
+for frame in 0..1000000 {
+    let contacts: Vec<Contact> = physics.detect_collisions();
+    // 1000+ malloc calls per frame
+    // Memory scattered across heap
+    // Fragmentation builds up
+    // Unpredictable frame times
+}
+```
+
+**The framealloc Solution:**
+```rust
+let alloc = SmartAlloc::new(Default::default());
+
+for frame in 0..1000000 {
+    alloc.begin_frame();
+    let contacts = alloc.frame_vec::<Contact>();
+    // Single bump pointer, contiguous memory, cache-friendly
+    alloc.end_frame();
+    // Everything freed in O(1), zero fragmentation
+}
+```
+
+**Results:**
+- **139x faster** than malloc for batch allocations
+- **Stable frame times** — no GC pauses, no fragmentation
+- **Explicit lifetimes** — frame/pool/heap explicit in code
+- **Observable** — know exactly where memory goes
+
+---
+
+## Documentation & Learning Path
+
+### Getting Started (0-2 hours)
+**[Getting Started Guide](docs/getting-started.md)** — Install, write your first allocation, understand core concepts.
+
+*Start here if:* You're evaluating framealloc or just installed it.
+
+### Common Patterns (2-20 hours)
+**[Patterns Guide](docs/patterns.md)** — Frame loops, threading, organization, common pitfalls.
+
+*Start here if:* You've used framealloc basics and want to structure real applications.
+
+### Domain Guides
+
+| Domain | Guide | Description |
+|--------|-------|-------------|
+| **Game Development** | [Game Dev Guide](docs/game-dev.md) | ECS, rendering, audio, level streaming |
+| **Physics** | [Rapier Integration](docs/rapier-integration.md) | Contact generation, queries, performance |
+| **Async** | [Async Guide](docs/async.md) | Safe patterns, TaskAlloc, avoiding frame violations |
+| **Performance** | [Performance Guide](docs/performance.md) | Batch allocation, profiling, benchmarks |
+
+### Advanced Topics (20-100 hours)
+**[Advanced Guide](docs/advanced.md)** — Custom allocators, internals, NUMA awareness, instrumentation.
+
+*Start here if:* You're extending framealloc or need maximum performance.
+
+### Reference
+
+| Resource | Description |
+|----------|-------------|
+| [API Documentation](https://docs.rs/framealloc) | Complete API reference |
+| [Cookbook](docs/cookbook.md) | Copy-paste recipes for common tasks |
+| [Migration Guide](docs/migration.md) | Coming from other allocators |
+| [Troubleshooting](docs/troubleshooting.md) | Common issues and solutions |
+| [TECHNICAL.md](TECHNICAL.md) | Architecture and implementation details |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+
+### Examples
+
+```bash
+# Beginner (0-2 hours)
+cargo run --example 01_hello_framealloc    # Simplest: begin_frame, alloc, end_frame
+cargo run --example 02_frame_loop          # Typical game loop with frame allocations
+cargo run --example 03_pools_and_heaps     # When to use frame vs pool vs heap
+
+# Intermediate (2-20 hours)
+cargo run --example 04_threading           # TransferHandle and FrameBarrier
+cargo run --example 05_tags_and_budgets    # Organizing allocations, enforcing limits
+
+# Advanced (20+ hours)
+cargo run --example 06_custom_allocator    # Implementing AllocatorBackend
+cargo run --example 07_batch_optimization  # Using frame_alloc_batch for particles
+```
+
+---
+
+## Coming From...
+
+**Default Rust (`Vec`, `Box`):**
+```rust
+// Before:                      // After:
+let scratch = vec![0u8; 1024];  let scratch = alloc.frame_slice::<u8>(1024);
+```
+
+**bumpalo:**
+```rust
+// bumpalo:                     // framealloc:
+let bump = Bump::new();         alloc.begin_frame();
+let x = bump.alloc(42);         let x = alloc.frame_alloc::<i32>();
+bump.reset();                   alloc.end_frame();
+```
+
+**C++ game allocators:** Frame allocators → `frame_alloc()` | Object pools → `pool_alloc()` | Custom → `AllocatorBackend` trait
+
+See [Migration Guide](docs/migration.md) for detailed conversion steps.
+
+---
+
+## Quick Start
+
+### Basic Usage
+
+```rust
+use framealloc::{SmartAlloc, AllocConfig};
+
+fn main() {
+    let alloc = SmartAlloc::new(AllocConfig::default());
+
+    loop {
+        alloc.begin_frame();
+        let temp = alloc.frame_alloc::<TempData>();
+        alloc.end_frame();
+    }
+}
+```
+
+### Bevy Integration
+
+```rust
+use bevy::prelude::*;
+use framealloc::bevy::SmartAllocPlugin;
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(SmartAllocPlugin::default())
+        .run();
+}
+
+fn physics_system(alloc: Res<framealloc::bevy::AllocResource>) {
+    let contacts = alloc.frame_vec::<Contact>();
+}
+```
 
 ---
 
@@ -63,18 +217,8 @@ loop {
         let contacts = a.frame_vec::<Contact>();
     });
     
-    alloc.end_frame(); // Frame memory released
+    alloc.end_frame();
 }
-```
-
-### Frame Retention & Promotion
-
-```rust
-// Keep frame data beyond frame boundary
-let navmesh = alloc.frame_retained::<NavMesh>(RetentionPolicy::PromoteToPool);
-
-// Get promoted allocations at frame end
-let promotions = alloc.end_frame_with_promotions();
 ```
 
 ### Thread Coordination (v0.6.0)
@@ -83,7 +227,6 @@ let promotions = alloc.end_frame_with_promotions();
 // Explicit cross-thread transfers
 let handle = alloc.frame_box_for_transfer(data);
 worker_channel.send(handle);
-// Receiver: let data = handle.receive();
 
 // Frame barriers for deterministic sync
 let barrier = FrameBarrier::new(3);
@@ -96,34 +239,22 @@ alloc.set_thread_frame_budget(megabytes(8));
 
 ### IDE Integration (v0.7.0)
 
+**fa-insight** — VS Code extension for framealloc-aware development:
+
 ```rust
-// Enable snapshot emission for fa-insight
-let snapshot_config = SnapshotConfig::default()
-    .with_directory("target/framealloc")
-    .with_max_snapshots(30);
-
-let emitter = SnapshotEmitter::new(snapshot_config);
-
-// In your frame loop
-alloc.end_frame();
-let snapshot = build_snapshot(&alloc, frame_number);
-emitter.maybe_emit(&snapshot); // Checks for request file
+fn physics_update(alloc: &SmartAlloc) {  // 💾 2.1 MB ↗ 📊
+    // CodeLens shows: current usage, trend, sparkline
+    alloc.with_tag("physics", |a| {
+        let contacts = a.frame_vec::<Contact>();
+    });
+}
 ```
 
-**fa-insight** — VS Code extension for framealloc-aware development:
-- Inline diagnostics from `cargo fa`
-- Memory inspector sidebar panel
-- Real-time snapshot visualization
-- Tag hierarchy and budget tracking
-- **CodeLens** — Memory usage shown above functions (v0.2.0)
-- **Trend Graphs** — Sparklines showing memory over time (v0.2.0)
-- **Budget Alerts** — Toast warnings at 80%+ usage (v0.2.0)
+Features: CodeLens memory display, trend graphs, budget alerts at 80%+ usage.
 
-Install: Search "FA Insight" in [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=YelenaTor.fa-insight) or `code --install-extension fa-insight-0.2.0.vsix`.
+Install: Search "FA Insight" in [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=YelenaTor.fa-insight)
 
 ### Tokio Integration (v0.8.0)
-
-Safe async/await patterns with the hybrid model:
 
 ```rust
 use framealloc::tokio::{TaskAlloc, AsyncPoolGuard};
@@ -133,311 +264,192 @@ alloc.begin_frame();
 let scratch = alloc.frame_vec::<f32>();
 
 // Async tasks: use TaskAlloc (pool-backed, auto-cleanup)
-let alloc_clone = alloc.clone();
 tokio::spawn(async move {
     let mut task = TaskAlloc::new(&alloc_clone);
     let data = task.alloc_box(load_asset().await);
-    process(&data).await;
-    // task drops → allocations freed
 });
 
-alloc.end_frame(); // Frame reset, async tasks unaffected
+alloc.end_frame();
 ```
 
 **Key principle:** Frame allocations stay on main thread, async tasks use pool/heap.
 
-Enable with:
-```toml
-framealloc = { version = "0.9", features = ["tokio"] }
-```
+Enable: `framealloc = { version = "0.10", features = ["tokio"] }`
 
-See [docs/Tokio-Frame.md](docs/Tokio-Frame.md) for the full async safety guide.
+See [Async Guide](docs/async.md) for the full async safety guide.
 
-### Performance Optimizations (v0.9.0)
+### Batch Allocations (v0.9.0)
 
-#### Batch Allocations
+> ⚠️ **SAFETY FIRST:** Batch APIs use raw pointers
 
-**Benchmark results (1000 allocations of 64-byte items):**
-- Individual `malloc`: 12,450 ns
-- Individual `frame_alloc`: 8,920 ns (1.4x faster than malloc)
-- `frame_alloc_batch`: 64 ns (139x faster than individual frame_alloc, 194x faster than malloc)
-
-Batch allocation eliminates per-call overhead and boundary checking.
+**139x faster** than individual allocations, but requires `unsafe`:
 
 ```rust
-// Instead of:
-for _ in 0..1000 {
-    let item = alloc.frame_alloc::<Item>();
-    // ...
-}
-
-// Use batch allocation:
 let items = alloc.frame_alloc_batch::<Item>(1000);
 
-// SAFETY: Index is within bounds (0..1000)
+// SAFETY REQUIREMENTS:
+// 1. Indices must be within 0..count
+// 2. Must initialize with std::ptr::write before reading
+// 3. Pointers invalid after end_frame()
+// 4. Not Send/Sync - don't pass to other threads
+
 unsafe {
     for i in 0..1000 {
         let item = items.add(i);
         std::ptr::write(item, Item::new(i));
-        // Use item...
     }
 }
 ```
 
-**Safety requirements:**
-- Indices must be within `0..count`
-- Must initialize before reading (use `std::ptr::write`)
-- Pointers invalid after `end_frame()`
-- Not `Send` or `Sync` - don't pass to other threads
-
-#### When to Use Batch Allocations
-
-**Use batch APIs when:**
-- Allocating >100 items in a tight loop
-- Performance profiling shows allocation overhead
-- Item count is known upfront
-- Safety requirements are acceptable
-
-**Stick with individual APIs when:**
-- Allocating <10 items (overhead not significant)
-- Count unknown or variable
-- Need automatic Drop handling
-- Prototyping (optimize later)
-
-#### Minimal Mode
-Disable all statistics for maximum performance (66% improvement in batch scenarios):
-
-```toml
-# Development (keep diagnostics)
-framealloc = "0.9"
-
-# Production (maximum performance)
-framealloc = { version = "0.9", features = ["minimal"] }
-```
-
-Minimal mode disables:
-- Allocation counting and statistics
-- Tag tracking overhead
-- Behavior filter instrumentation
-- Debug assertions
-
-#### Cache Prefetch (x86_64 Only)
-Enable hardware prefetch hints for better performance in alloc-then-write patterns:
-
-```toml
-framealloc = { version = "0.9", features = ["prefetch"] }
-```
-
-**What it does:**
-Emits `PREFETCHW` instructions to bring cache lines into L1 in exclusive state before writing, reducing cache miss latency.
-
-**Benchmark impact:**
-- Write-heavy: 10-15% faster allocation+initialization
-- Read-heavy: negligible impact
-- Memory-bound: up to 25% improvement
-
-#### Specialized Batch Sizes
-For known small counts, use specialized methods with zero overhead:
-
+**Specialized sizes** (zero overhead, no unsafe):
 ```rust
-// Allocate exactly 2 items (common for pairs, vec2)
-let [a, b] = alloc.frame_alloc_2::<Vec2>();
-a.x = 1.0;
-b.x = 2.0;
-
-// Allocate exactly 4 items (common for quads, matrix rows)
-let [a, b, c, d] = alloc.frame_alloc_4::<Vertex>();
-
-// Allocate exactly 8 items (cache line optimization)
-let items = alloc.frame_alloc_8::<u64>();
-```
-
-**Performance characteristics:**
-- Compiled to single bump pointer increment
-- No bounds checking (count is compile-time constant)
-- No loop overhead
-- Often inlined completely
-
-### Runtime Behavior Filter
-
-```rust
-// Opt-in runtime detection of allocation pattern issues
-alloc.enable_behavior_filter();
-
-// After running...
-let report = alloc.behavior_report();
-for issue in &report.issues {
-    eprintln!("[{}] {}", issue.code, issue.message);
-}
+let [a, b] = alloc.frame_alloc_2::<Vec2>();       // Pairs
+let [a, b, c, d] = alloc.frame_alloc_4::<Vertex>(); // Quads
+let items = alloc.frame_alloc_8::<u64>();         // Cache line
 ```
 
 ### Rapier Physics Integration (v0.10.0)
 
-Frame-aware wrappers for Rapier physics engine v0.31, enabling high-performance bulk allocations:
+Frame-aware wrappers for Rapier physics engine v0.31:
 
 ```rust
 use framealloc::{SmartAlloc, rapier::PhysicsWorld2D};
-use rapier2d::dynamics::{RigidBodyBuilder};
-use rapier2d::geometry::{ColliderBuilder};
 
-let alloc = SmartAlloc::new(Default::default());
 let mut physics = PhysicsWorld2D::new();
 
 alloc.begin_frame();
-
-// Create bodies using frame allocation for temporary data
-let body = physics.insert_body(
-    RigidBodyBuilder::dynamic().translation(0.0, 5.0),
-    ColliderBuilder::ball(1.0),
-    &alloc
-);
-
-// Step physics with frame-allocated contact buffers
 let events = physics.step_with_events(&alloc);
-
-// Process collision events (valid until end_frame)
 for contact in events.contacts {
-    println!("Contact between {:?}", contact);
+    println!("Contact: {:?}", contact);
 }
-
-// Ray casting with frame-allocated results
-use rapier2d::geometry::Ray;
-use rapier2d::na::Vector2;
-use rapier2d::pipeline::QueryFilter;
-
-let ray = Ray::new(
-    rapier2d::na::Point2::new(0.0, 5.0),
-    Vector2::new(0.0, -1.0)
-);
-let hits = physics.cast_ray(&ray, 100.0, true, &QueryFilter::default(), &alloc);
-for hit in hits {
-    println!("Hit at distance: {}", hit.time_of_impact);
-}
-
-alloc.end_frame(); // All physics data automatically freed
+alloc.end_frame();
 ```
 
-**Features:**
-- Frame-allocated contact and proximity events
-- Bulk allocation for query results using `frame_alloc_batch`
-- Updated for Rapier v0.31 API (BroadPhaseBvh, QueryFilter changes)
-- Automatic cleanup at frame boundaries
-- Support for both 2D and 3D physics
+**Why Rapier v0.31 matters:** Rapier v0.31 refactored broad-phase and query APIs. If you're using Rapier ≤v0.30, use framealloc v0.9.0 instead.
 
-**Performance:**
-- Contact buffers: 139x faster than individual allocations
-- Query results: Single bulk allocation per query
-- Zero manual memory management
+Enable: `framealloc = { version = "0.10", features = ["rapier"] }`
 
-**API Changes in v0.31:**
-- `BroadPhase` renamed to `BroadPhaseBvh`
-- `QueryFilter` moved from `geometry` to `pipeline` module
-- `PhysicsPipeline::step` signature updated (removed `None` parameter)
-- Ray casting now uses `as_query_pipeline` method
+See [Rapier Integration Guide](docs/rapier-integration.md) for full documentation.
 
-Enable with:
+---
+
+## GPU Support (v0.11.0)
+
+framealloc now supports **unified CPU-GPU memory management** with clean separation and optional GPU backends.
+
+### Architecture
+
+- **CPU Module**: Always available, zero GPU dependencies
+- **GPU Module**: Feature-gated (`gpu`), backend-agnostic traits
+- **Coordinator Module**: Bridges CPU and GPU (`coordinator` feature)
+
+### Feature Flags
+
 ```toml
-framealloc = { version = "0.10", features = ["rapier"] }
+# Enable GPU support (no backend yet)
+framealloc = { version = "0.11", features = ["gpu"] }
+
+# Enable Vulkan backend
+framealloc = { version = "0.11", features = ["gpu-vulkan"] }
+
+# Enable unified CPU-GPU coordination
+framealloc = { version = "0.11", features = ["gpu-vulkan", "coordinator"] }
 ```
+
+### Quick Example
+
+```rust
+#[cfg(feature = "coordinator")]
+use framealloc::coordinator::UnifiedAllocator;
+use framealloc::gpu::traits::{BufferUsage, MemoryType};
+
+// Create unified allocator
+let mut unified = UnifiedAllocator::new(cpu_alloc, gpu_alloc);
+
+// Begin frame
+unified.begin_frame();
+
+// Create staging buffer for CPU-GPU transfer
+let staging = unified.create_staging_buffer(2048)?;
+if let Some(slice) = staging.cpu_slice_mut() {
+    slice.copy_from_slice(&vertex_data);
+}
+
+// Transfer to GPU
+unified.transfer_to_gpu(&mut staging)?;
+
+// Check usage
+let (cpu_mb, gpu_mb) = unified.get_usage();
+println!("CPU: {} MB, GPU: {} MB", cpu_mb / 1024 / 1024, gpu_mb / 1024 / 1024);
+
+unified.end_frame();
+```
+
+### Key Benefits
+
+- **Zero overhead** for CPU-only users (no new deps)
+- **Backend-agnostic** GPU traits (Vulkan today, more tomorrow)
+- **Unified budgeting** across CPU and GPU memory
+- **Explicit transfers** - no hidden synchronization costs
+
+### GPU Backend Roadmap
+
+**Why Vulkan First?**
+Vulkan provides the most explicit control over memory allocation, making it ideal for demonstrating framealloc's intent-driven approach. Its low-level nature exposes all the memory concepts we abstract (device-local, host-visible, staging buffers), serving as the perfect reference implementation.
+
+**Planned Backend Support**
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| **Vulkan** | ✅ Available | Low-level, explicit memory control |
+| **Direct3D 11/12** | 🔄 Planned | Windows gaming platforms |
+| **Metal** | 🔄 Planned | Apple ecosystem (iOS/macOS) |
+| **WebGPU** | 🔄 Future | Browser-based applications |
+
+**Generic GPU Usage**
+You can use framealloc's GPU traits without committing to a specific backend:
+
+```rust
+use framealloc::gpu::{GpuMemoryIntent, GpuLifetime, GpuAllocRequirements};
+
+// Intent-driven allocation works with any backend
+let req = GpuAllocRequirements::new(
+    size,
+    GpuMemoryIntent::Staging,  // Expresses WHAT, not HOW
+    GpuLifetime::Frame,        // Clear lifetime semantics
+);
+
+// Backend-agnostic allocation
+let buffer = allocator.allocate(req)?;
+```
+
+The intent-based design ensures your code remains portable as new backends are added. Simply swap the allocator implementation without changing allocation logic.
 
 ---
 
 ## Static Analysis
 
-**cargo-fa** is a companion tool that detects memory intent violations before runtime.
-
-### Installation
+**cargo-fa** detects memory intent violations before runtime.
 
 ```bash
 cargo install --path cargo-fa
-```
 
-### Usage
-
-```bash
 # Check specific categories
 cargo fa --dirtymem       # Frame escape, hot loop allocations
 cargo fa --async-safety   # Async/await boundary issues
 cargo fa --threading      # Cross-thread frame access
-cargo fa --architecture   # Tag mismatches, module boundaries
-
-# Run all checks
-cargo fa --all
+cargo fa --all            # Run all checks
 
 # CI integration
-cargo fa --all --format sarif       # GitHub Actions
-cargo fa --all --format junit       # Test reporters
-cargo fa --all --format checkstyle  # Jenkins
+cargo fa --all --format sarif  # GitHub Actions
 ```
-
-### Filtering
-
-```bash
-cargo fa --all --deny FA701         # Treat as error
-cargo fa --all --allow FA602        # Suppress
-cargo fa --all --exclude "**/test*" # Skip paths
-```
-
-### Subcommands
-
-```bash
-cargo fa explain FA601              # Detailed explanation
-cargo fa show src/physics.rs        # Single file analysis
-cargo fa list                       # All diagnostic codes
-cargo fa init                       # Generate .fa.toml
-```
-
-### Diagnostic Categories
 
 | Range | Category | Examples |
 |-------|----------|----------|
-| FA2xx | Threading | Cross-thread access, barrier mismatch, budget missing |
-| FA3xx | Budgets | Unbounded allocation loops |
+| FA2xx | Threading | Cross-thread access, barrier mismatch |
 | FA6xx | Lifetime | Frame escape, hot loops, missing boundaries |
 | FA7xx | Async | Allocation across await, closure capture |
-| FA8xx | Architecture | Tag mismatch, unknown tags |
-
----
-
-## Quick Start
-
-### Basic Usage
-
-```rust
-use framealloc::{SmartAlloc, AllocConfig};
-
-fn main() {
-    let alloc = SmartAlloc::new(AllocConfig::default());
-
-    loop {
-        alloc.begin_frame();
-        
-        // Your frame logic here
-        let temp = alloc.frame_alloc::<TempData>();
-        
-        alloc.end_frame();
-    }
-}
-```
-
-### Bevy Integration
-
-```rust
-use bevy::prelude::*;
-use framealloc::bevy::SmartAllocPlugin;
-
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(SmartAllocPlugin::default())
-        .run();
-}
-
-fn physics_system(alloc: Res<framealloc::bevy::AllocResource>) {
-    let contacts = alloc.frame_vec::<Contact>();
-    // Automatically reset each frame
-}
-```
+| FA9xx | Rapier | QueryFilter import, step_with_events usage |
 
 ---
 
@@ -446,12 +458,12 @@ fn physics_system(alloc: Res<framealloc::bevy::AllocResource>) {
 | Feature | Description |
 |---------|-------------|
 | `bevy` | Bevy ECS plugin integration |
+| `rapier` | Rapier physics engine integration |
+| `tokio` | Async/await support with Tokio |
 | `parking_lot` | Faster mutex implementation |
 | `debug` | Memory poisoning, allocation backtraces |
-| `tracy` | Tracy profiler integration |
-| `nightly` | `std::alloc::Allocator` trait support |
-| `diagnostics` | Enhanced runtime diagnostics |
-| `memory_filter` | Behavior filter for pattern detection |
+| `minimal` | Disable statistics for max performance |
+| `prefetch` | Hardware prefetch hints (x86_64) |
 
 ---
 
@@ -465,16 +477,6 @@ Allocation priority minimizes latency:
 4. **System heap** — Fallback for oversized allocations
 
 In typical game workloads, **90%+ of allocations** hit the frame arena path.
-
----
-
-## Documentation
-
-| Resource | Description |
-|----------|-------------|
-| [API Docs](https://docs.rs/framealloc) | Generated API documentation |
-| [TECHNICAL.md](TECHNICAL.md) | Architecture and implementation details |
-| [CHANGELOG.md](CHANGELOG.md) | Version history and migration guides |
 
 ---
 

@@ -8,6 +8,7 @@ pub mod budgets;
 pub mod async_safety;
 pub mod architecture;
 pub mod rapier;
+pub mod gpu;
 
 use crate::config::Config;
 use crate::diagnostics::Diagnostic;

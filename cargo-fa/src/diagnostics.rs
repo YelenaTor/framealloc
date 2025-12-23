@@ -633,3 +633,107 @@ impl DiagnosticBuilder {
         }
     }
 }
+
+// =============================================================================
+// Predefined diagnostic codes (FA8xx - GPU Memory Safety) - v0.11.0
+// =============================================================================
+
+/// FA801: Staging buffer not freed before frame end
+pub fn fa801(location: Location) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA801"),
+        severity: Severity::Warning,
+        message: "staging buffer not freed before frame end".to_string(),
+        location,
+        notes: vec![
+            "staging buffers should be freed or transferred before end_frame()".to_string(),
+            "unfreed staging buffers can cause memory leaks and unnecessary GPU memory usage".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "ensure staging buffers are freed with transfer_to_gpu() or manually dropped before end_frame()".to_string(),
+            replacement: None,
+            applicability: Applicability::MaybeIncorrect,
+        }),
+        related: vec![],
+    }
+}
+
+/// FA802: GPU buffer created without transfer usage flags
+pub fn fa802(location: Location) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA802"),
+        severity: Severity::Error,
+        message: "GPU buffer created without transfer usage flags".to_string(),
+        location,
+        notes: vec![
+            "device-local buffers cannot be accessed directly by CPU".to_string(),
+            "they need TRANSFER_DST usage to receive data from staging buffers".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "add BufferUsage::TRANSFER_DST to allow CPU-GPU transfers".to_string(),
+            replacement: None,
+            applicability: Applicability::MaybeIncorrect,
+        }),
+        related: vec![],
+    }
+}
+
+/// FA803: CPU-GPU transfer without synchronization barrier
+pub fn fa803(location: Location) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA803"),
+        severity: Severity::Warning,
+        message: "CPU-GPU transfer without synchronization barrier".to_string(),
+        location,
+        notes: vec![
+            "GPU operations should be properly synchronized to avoid race conditions".to_string(),
+            "missing barriers can cause data corruption or access violations".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "add a CpuGpuBarrier or wait for GPU completion before accessing transferred data".to_string(),
+            replacement: None,
+            applicability: Applicability::MaybeIncorrect,
+        }),
+        related: vec![],
+    }
+}
+
+/// FA804: Device-local buffer mapped for CPU access
+pub fn fa804(location: Location) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA804"),
+        severity: Severity::Error,
+        message: "device-local buffer mapped for CPU access".to_string(),
+        location,
+        notes: vec![
+            "device-local memory cannot be mapped for CPU access".to_string(),
+            "attempting to map device-local memory will fail at runtime".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "use MemoryType::HostVisible or MemoryType::HostCoherent for mapped buffers".to_string(),
+            replacement: None,
+            applicability: Applicability::MaybeIncorrect,
+        }),
+        related: vec![],
+    }
+}
+
+/// FA805: Staging buffer reused across frames without reset
+pub fn fa805(location: Location) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA805"),
+        severity: Severity::Warning,
+        message: "staging buffer reused across frames without reset".to_string(),
+        location,
+        notes: vec![
+            "reusing staging buffers across frames can lead to data corruption".to_string(),
+            "staging buffers should be created fresh each frame or properly reset".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "create new staging buffers each frame or properly reset them with begin_frame()".to_string(),
+            replacement: None,
+            applicability: Applicability::MaybeIncorrect,
+        }),
+        related: vec![],
+    }
+}
