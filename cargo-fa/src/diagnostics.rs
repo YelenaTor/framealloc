@@ -451,6 +451,110 @@ pub fn fa803(location: Location, from_module: &str, to_module: &str) -> Diagnost
     }
 }
 
+// =============================================================================
+// Predefined diagnostic codes (FA9xx - Rapier Integration)
+// =============================================================================
+
+/// FA901: QueryFilter imported from wrong module
+pub fn fa901(location: Location) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA901"),
+        severity: Severity::Warning,
+        message: "QueryFilter should be imported from rapier::pipeline, not rapier::geometry".to_string(),
+        location,
+        notes: vec![
+            "In Rapier 0.31, QueryFilter was moved from geometry to pipeline module".to_string(),
+            "Using the old import will cause compilation errors".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "change import to: use rapier2d::pipeline::QueryFilter".to_string(),
+            replacement: Some("rapier::pipeline".to_string()),
+            applicability: Applicability::MachineApplicable,
+        }),
+        related: vec![],
+    }
+}
+
+/// FA902: BroadPhase renamed to BroadPhaseBvh
+pub fn fa902(location: Location) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA902"),
+        severity: Severity::Warning,
+        message: "BroadPhase has been renamed to BroadPhaseBvh in Rapier 0.31".to_string(),
+        location,
+        notes: vec![
+            "The broad phase implementation changed in Rapier 0.31".to_string(),
+            "Update all references to use BroadPhaseBvh".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "replace BroadPhase with BroadPhaseBvh".to_string(),
+            replacement: Some("BroadPhaseBvh".to_string()),
+            applicability: Applicability::MachineApplicable,
+        }),
+        related: vec![],
+    }
+}
+
+/// FA903: Use step_with_events instead of step
+pub fn fa903(location: Location) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA903"),
+        severity: Severity::Hint,
+        message: "Consider using step_with_events() instead of step() for frame-aware event collection".to_string(),
+        location,
+        notes: vec![
+            "step_with_events() returns frame-allocated contact and proximity events".to_string(),
+            "step() discards events and provides no frame allocation benefits".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "use step_with_events(&alloc) to get frame-allocated events".to_string(),
+            replacement: Some("step_with_events(&alloc)".to_string()),
+            applicability: Applicability::HasPlaceholders,
+        }),
+        related: vec![],
+    }
+}
+
+/// FA904: Ray casting without prior step
+pub fn fa904(location: Location) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA904"),
+        severity: Severity::Warning,
+        message: "Ray casting may not work correctly without calling step() first to update the broad phase".to_string(),
+        location,
+        notes: vec![
+            "The broad phase BVH must be updated after inserting colliders".to_string(),
+            "Call step() once before ray casting to ensure colliders are registered".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "call physics.step() before cast_ray()".to_string(),
+            replacement: None,
+            applicability: Applicability::HasPlaceholders,
+        }),
+        related: vec![],
+    }
+}
+
+/// FA905: frame_alloc_slice replaced
+pub fn fa905(location: Location) -> Diagnostic {
+    Diagnostic {
+        code: DiagnosticCode::new("FA905"),
+        severity: Severity::Warning,
+        message: "frame_alloc_slice has been replaced with frame_alloc_batch + manual copying".to_string(),
+        location,
+        notes: vec![
+            "frame_alloc_slice was removed in favor of more explicit batch allocation".to_string(),
+            "Use frame_alloc_batch() and manually copy elements for better performance".to_string(),
+        ],
+        suggestion: Some(Suggestion {
+            message: "use frame_alloc_batch() + manual copying".to_string(),
+            replacement: None,
+            applicability: Applicability::HasPlaceholders,
+        }),
+        related: vec![],
+    }
+}
+
 impl Diagnostic {
     /// Create a diagnostic builder
     pub fn builder(code: &str) -> DiagnosticBuilder {

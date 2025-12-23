@@ -7,6 +7,7 @@ pub mod threading;
 pub mod budgets;
 pub mod async_safety;
 pub mod architecture;
+pub mod rapier;
 
 use crate::config::Config;
 use crate::diagnostics::Diagnostic;

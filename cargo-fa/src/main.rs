@@ -107,6 +107,7 @@ fn handle_subcommand(cmd: &Command, args: &Args) -> Result<()> {
                     all_diags.extend(lints::budgets::check(&ast, file, &config));
                     all_diags.extend(lints::async_safety::check(&ast, file, &config));
                     all_diags.extend(lints::architecture::check(&ast, file, &config));
+                    all_diags.extend(lints::rapier::check(&ast, file, &config));
                     
                     if all_diags.is_empty() {
                         println!("No issues found in {}.", file.display());
@@ -229,9 +230,8 @@ impl Analyzer {
                     }
                 }
                 Err(e) => {
-                    if self.args.verbose {
-                        eprintln!("  Warning: Could not parse {}: {}", file_path.display(), e);
-                    }
+                    eprintln!("ERROR: Failed to parse {}: {}", file_path.display(), e);
+                    std::process::exit(1);
                 }
             }
         }
@@ -272,6 +272,11 @@ impl Analyzer {
         // 5. Threading (most complex - control flow analysis)
         if self.args.threading || self.args.all {
             diagnostics.extend(lints::threading::check(ast, path, &self.config));
+        }
+        
+        // 6. Rapier integration (physics engine specific checks)
+        if self.args.all {
+            diagnostics.extend(lints::rapier::check(ast, path, &self.config));
         }
         
         diagnostics

@@ -141,6 +141,7 @@ cargo fa init
 | FA6xx | Lifetime | Frame escape, hot loops, missing boundaries |
 | FA7xx | Async | Await crossing, closure capture, async functions |
 | FA8xx | Architecture | Tag mismatch, unknown tags, module violations |
+| FA9xx | Rapier | Physics engine integration issues (Rapier 0.31) |
 
 ### Example Output
 
