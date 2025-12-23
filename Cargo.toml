@@ -1,6 +1,6 @@
 [package]
 name = "framealloc"
-version = "0.9.0"
+version = "0.10.0"
 edition = "2021"
 authors = ["YelenaTor"]
 description = "Intent-aware, thread-smart memory allocation for Rust game engines"
