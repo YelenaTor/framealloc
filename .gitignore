@@ -1,0 +1,57 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+ELEVATE.md
+
+# Build artifacts
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Debug files
+*.dSYM/
+*.pdb
+
+# Profiling
+*.profdata
+*.profraw
+perf.data
+perf.data.old
+flamegraph.svg
+
+# Documentation build
+/doc/
+
+# Test artifacts
+*.log
+.coverage/
+
+# Benchmark results
+/target/criterion/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Environment
+.env
+.env.local
+*.local
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.old.md

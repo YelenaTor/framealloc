@@ -1,0 +1,92 @@
+[package]
+name = "framealloc"
+version = "0.9.0"
+edition = "2021"
+authors = ["YelenaTor"]
+description = "Intent-aware, thread-smart memory allocation for Rust game engines"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/YelenaTor/framealloc"
+homepage = "https://github.com/YelenaTor/framealloc"
+documentation = "https://docs.rs/framealloc"
+keywords = ["allocator", "game-engine", "memory", "frame-allocator", "ide-integration"]
+categories = ["memory-management", "game-development", "concurrency"]
+readme = "README.md"
+rust-version = "1.70"
+
+[features]
+default = []
+
+# Use parking_lot for faster mutexes
+parking_lot = ["dep:parking_lot"]
+
+# Bevy integration
+bevy = ["dep:bevy_ecs", "dep:bevy_app"]
+
+# Debug features: memory poisoning, allocation backtraces
+debug = ["dep:backtrace"]
+
+# Tracy profiler integration
+tracy = ["dep:tracy-client"]
+
+# Nightly: std::alloc::Allocator trait implementations
+nightly = []
+
+# Memory behavior filter: runtime detection of allocation pattern issues (v0.4.0)
+# Tracks per-tag allocation behavior and detects intent violations
+memory_filter = []
+
+# Tokio integration: async-safe allocation patterns (v0.8.0)
+# Provides TaskAlloc and AsyncPoolGuard for async contexts
+tokio = []
+
+# Extra diagnostics output (verbose logging)
+diagnostics = []
+
+# Log crate integration
+log = ["dep:log"]
+
+# Minimal mode: No statistics or bookkeeping for maximum performance
+minimal = []
+
+# Cache prefetch hints for better alloc+write performance (x86_64 only)
+prefetch = []
+
+[dependencies]
+# Lock-free concurrent queue for deferred frees
+crossbeam-queue = "0.3"
+
+# Optional: faster mutexes
+parking_lot = { version = "0.12", optional = true }
+
+# Optional: Bevy integration (using minimal deps)
+bevy_ecs = { version = "0.14", optional = true, default-features = false }
+bevy_app = { version = "0.14", optional = true, default-features = false }
+
+# Optional: debug backtraces
+backtrace = { version = "0.3", optional = true }
+
+# Optional: Tracy profiler
+tracy-client = { version = "0.17", optional = true }
+
+# Optional: log crate integration
+log = { version = "0.4", optional = true }
+
+[dev-dependencies]
+criterion = "0.5"
+bumpalo = "3.14"
+
+[[bench]]
+name = "allocator"
+harness = false
+
+[[bench]]
+name = "allocators"
+harness = false
+
+[[bench]]
+name = "minimal_mode"
+harness = false
+
+[[bench]]
+name = "optimizations"
+harness = false

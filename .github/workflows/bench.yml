@@ -1,0 +1,50 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  deployments: write
+
+jobs:
+  benchmark:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run benchmarks
+        run: |
+          cargo bench --bench allocators -- --output-format bencher | tee output.txt
+          cargo bench --bench optimizations --features "minimal,prefetch" -- --output-format bencher | tee -a output.txt
+
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: framealloc Benchmarks
+          tool: 'cargo'
+          output-file-path: output.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          gh-pages-branch: gh-pages
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: '@YelenaTor'
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            output.txt
+            target/criterion/
+          retention-days: 30
