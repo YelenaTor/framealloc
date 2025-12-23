@@ -51,6 +51,12 @@ minimal = []
 # Cache prefetch hints for better alloc+write performance (x86_64 only)
 prefetch = []
 
+# Rapier physics engine integration
+rapier = ["dep:rapier2d", "dep:rapier3d"]
+
+# Real-time allocator for audio and latency-critical systems (removed)
+# realtime = []
+
 [dependencies]
 # Lock-free concurrent queue for deferred frees
 crossbeam-queue = "0.3"
@@ -70,6 +76,10 @@ tracy-client = { version = "0.17", optional = true }
 
 # Optional: log crate integration
 log = { version = "0.4", optional = true }
+
+# Optional: Rapier physics engine integration
+rapier2d = { version = "0.31", optional = true }
+rapier3d = { version = "0.31", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"

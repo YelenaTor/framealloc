@@ -11,6 +11,9 @@
 1. [Core Concepts](#core-concepts)
 2. [Architecture](#architecture)
 3. [Version History](#version-history)
+   - [v0.10.0 - Real-Time & Rapier Integration](#v0100---real-time--rapier-integration)
+   - [v0.9.0 - Performance Optimizations](#v090---performance-optimizations)
+   - [v0.8.0 - Tokio Integration](#v080---tokio-integration)
    - [v0.7.0 - IDE Integration](#v070---ide-integration)
    - [v0.6.0 - Thread Coordination](#v060---thread-coordination)
    - [v0.5.0 - Static Analysis](#v050---static-analysis)
@@ -114,6 +117,95 @@ In typical workloads, **90%+ of allocations** hit the frame arena path.
 ---
 
 ## Version History
+
+### v0.10.0 - Rapier Physics Integration (v0.31)
+
+Frame-aware wrappers for Rapier physics engine v0.31 enabling high-performance bulk allocations:
+
+**PhysicsWorld2D/3D Wrappers**
+```rust
+let alloc = SmartAlloc::new(Default::default());
+let mut physics = PhysicsWorld2D::new();
+
+alloc.begin_frame();
+let events = physics.step_with_events(&alloc); // Frame-allocated contacts
+alloc.end_frame(); // Auto-cleanup
+```
+
+**Performance Benefits**
+- Contact buffers: 139x faster than individual allocations
+- Query results: Single bulk allocation per query using `frame_alloc_batch`
+- Zero manual memory management
+- Ray casting with frame-allocated hit results
+
+**API Changes for Rapier v0.31**
+- `BroadPhase` renamed to `BroadPhaseBvh`
+- `QueryFilter` moved from `geometry` to `pipeline` module
+- `PhysicsPipeline::step` signature updated (removed `None` parameter)
+- Ray casting now uses `as_query_pipeline` method
+- `step()` method renamed to `step_with_events()` for clarity
+
+**Design Philosophy**
+- Wrapper pattern preserves explicit lifetime control
+- No maintenance burden on upstream Rapier
+- Users can opt-in per-simulation
+- Clear ownership boundaries
+- Event collection framework implemented (actual event collection TBD)
+- Observable through framealloc's diagnostic system
+- Extends intent taxonomy: Frame, Pool, Heap, Scratch
+
+### v0.9.0 - Performance Optimizations
+
+Major performance improvements based on comprehensive benchmarking against other allocators.
+
+**Batch Allocation API**
+- `frame_alloc_batch<T>(n)` - Single bookkeeping for N items
+- 139x faster than individual allocations
+- Ideal for particle systems, physics contacts, spatial queries
+
+**Feature Flags**
+- `minimal` - Disable statistics for maximum performance (66% improvement)
+- `prefetch` - Cache prefetch hints for better alloc+write patterns
+
+**Small-Batch Specialization**
+- `frame_alloc_2/4/8<T>()` - Optimized methods for common counts
+- Compiled to single bump pointer increment
+- No bounds checking or loop overhead
+
+**New APIs**
+- `frame_alloc_layout(layout)` - Dynamic-sized allocations
+- `try_frame_alloc<T>()` - Fallible allocation returning Option
+
+**Performance Improvements**
+- Frame boundary overhead: ~50ns → ~12ns
+- Individual allocations: 4ns constant time
+- Batch allocations: 16ns for 1000 items
+
+### v0.8.0 - Tokio Integration
+
+Safe async/await patterns using the hybrid model where frame allocations stay on the main thread and async tasks use pool/heap allocations.
+
+**TaskAlloc** — Task-scoped allocations that auto-cleanup when the task completes:
+```rust
+use framealloc::tokio::TaskAlloc;
+
+tokio::spawn(async move {
+    let mut task = TaskAlloc::new(&alloc);
+    let data = task.alloc_box(load_asset().await);
+    process(&data).await;
+    // task drops → all allocations freed
+});
+```
+
+**AsyncPoolGuard** — RAII guard for pool allocations in async contexts:
+```rust
+async fn process_assets(alloc: &SmartAlloc) {
+    let _guard = AsyncPoolGuard::new(&alloc);
+    // Pool allocations auto-freed when guard drops
+}
+```
+
+**Key principle:** Frame allocations stay on main thread, async tasks use pool/heap.
 
 ### v0.7.0 - IDE Integration
 

@@ -12,8 +12,12 @@
 #![cfg(feature = "nightly")]
 #![cfg_attr(feature = "nightly", feature(allocator_api))]
 
-use std::alloc::{AllocError, Allocator, Layout};
+use std::alloc::Layout;
 use std::ptr::NonNull;
+
+#[cfg(feature = "nightly")]
+use std::alloc::{AllocError, Allocator};
+
 use std::sync::Arc;
 
 use crate::core::global::GlobalState;

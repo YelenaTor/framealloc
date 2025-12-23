@@ -44,6 +44,9 @@ pub mod diagnostics;
 pub mod handles;
 pub mod streaming;
 
+#[cfg(feature = "rapier")]
+pub mod rapier;
+
 #[allow(dead_code)]
 mod allocators;
 #[allow(dead_code)]

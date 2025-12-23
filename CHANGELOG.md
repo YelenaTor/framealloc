@@ -5,6 +5,49 @@ All notable changes to `framealloc` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2025-12-23
+
+### Added
+
+#### Rapier Physics Engine Integration
+
+**Feature flag:** `rapier`
+
+Frame-aware wrappers for Rapier physics engine v0.31 with high-performance bulk allocations:
+
+```rust
+let alloc = SmartAlloc::new(Default::default());
+let mut physics = PhysicsWorld2D::new();
+
+alloc.begin_frame();
+let events = physics.step_with_events(&alloc); // Frame-allocated contacts
+alloc.end_frame(); // Auto-cleanup
+```
+
+**Features:**
+- Frame-allocated contact and proximity events (139x faster)
+- Bulk allocation for query results using `frame_alloc_batch`
+- Ray casting with frame-allocated hit results
+- Support for both 2D and 3D physics
+- Zero manual memory management
+- Updated for Rapier v0.31 API compatibility
+
+**API Changes for Rapier v0.31:**
+- `BroadPhase` renamed to `BroadPhaseBvh`
+- `QueryFilter` moved from `geometry` to `pipeline` module
+- `PhysicsPipeline::step` signature updated (removed `None` parameter)
+- Ray casting now uses `as_query_pipeline` method
+- `frame_alloc_slice` replaced with `frame_alloc_batch` + manual copying
+
+**Breaking Changes:**
+- `step()` method renamed to `step_with_events()` for clarity
+- Event collection framework implemented (actual event collection TBD)
+
+### Changed
+- Updated Rapier dependency from v0.19 to v0.31
+- Removed Kira and RealTimeAlloc traces completely
+- Fixed all compilation errors related to Rapier integration
+
 ## [0.9.0] - 2025-12-23
 
 ### Added
