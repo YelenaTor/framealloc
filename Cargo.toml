@@ -67,7 +67,12 @@ log = { version = "0.4", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"
+bumpalo = "3.14"
 
 [[bench]]
 name = "allocator"
+harness = false
+
+[[bench]]
+name = "allocators"
 harness = false
