@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1766468275004,
+  "lastUpdate": 1766468549022,
   "repoUrl": "https://github.com/YelenaTor/framealloc",
   "entries": {
     "framealloc Benchmarks": [
@@ -779,6 +779,408 @@ window.BENCHMARK_DATA = {
             "name": "batch_vs_individual_1000x64B/small_batch_8x125",
             "value": 220,
             "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "frame_boundary/empty_frame_cycle",
+            "value": 14,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "frame_boundary/light_frame_10_allocs",
+            "value": 32,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fallible_vs_regular/regular_alloc",
+            "value": 16,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "fallible_vs_regular/fallible_alloc",
+            "value": 16,
+            "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dngentle@gmail.com",
+            "name": "YoruSprites",
+            "username": "YoruSprites"
+          },
+          "committer": {
+            "email": "dngentle@gmail.com",
+            "name": "YoruSprites",
+            "username": "YoruSprites"
+          },
+          "distinct": true,
+          "id": "9047797415bd202d701240b061a3fd4b5af46969",
+          "message": "Fix documentation ordering - arrange versions chronologically (0.6-0.10)\n\n- Reorder README.md sections to show versions in chronological order\n- Thread Coordination (v0.6.0)\n- IDE Integration (v0.7.0)\n- Tokio Integration (v0.8.0)\n- Performance Optimizations (v0.9.0)\n- Rapier Physics Integration (v0.10.0)\n\nCHANGELOG.md and TECHNICAL.md already had correct chronological order",
+          "timestamp": "2025-12-23T07:29:20+02:00",
+          "tree_id": "71aad850bbac2d739929c47242f5d44db1b34cd7",
+          "url": "https://github.com/YelenaTor/framealloc/commit/9047797415bd202d701240b061a3fd4b5af46969"
+        },
+        "date": 1766468548667,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "single_alloc_64B/framealloc",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_64B/bumpalo",
+            "value": 6,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_64B/system_malloc",
+            "value": 13,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_64B/box_vec",
+            "value": 23,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_256B/framealloc",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_256B/bumpalo",
+            "value": 26,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_256B/system_malloc",
+            "value": 13,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_1KB/framealloc",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_1KB/bumpalo",
+            "value": 104,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_1KB/system_malloc",
+            "value": 13,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_4KB/framealloc",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_4KB/bumpalo",
+            "value": 431,
+            "range": "± 22",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_4KB/system_malloc",
+            "value": 40,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_64KB/framealloc",
+            "value": 5,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_64KB/bumpalo",
+            "value": 6354,
+            "range": "± 207",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "single_alloc_64KB/system_malloc",
+            "value": 40,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "batch_100x64B/framealloc",
+            "value": 238,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "batch_100x64B/bumpalo",
+            "value": 209,
+            "range": "± 2",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "batch_100x64B/system_malloc",
+            "value": 1858,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "batch_1000x64B/framealloc",
+            "value": 1791,
+            "range": "± 8",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "batch_1000x64B/bumpalo",
+            "value": 1776,
+            "range": "± 723",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "batch_1000x64B/system_malloc",
+            "value": 34654,
+            "range": "± 1044",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "batch_10000x64B/framealloc",
+            "value": 21790,
+            "range": "± 253",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "batch_10000x64B/bumpalo",
+            "value": 18716,
+            "range": "± 61",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "batch_10000x64B/system_malloc",
+            "value": 333398,
+            "range": "± 5699",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "workload_physics/framealloc",
+            "value": 1485,
+            "range": "± 4",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "workload_physics/bumpalo",
+            "value": 3470,
+            "range": "± 182",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "workload_physics/system_malloc",
+            "value": 26741,
+            "range": "± 129",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "workload_render/framealloc",
+            "value": 12811,
+            "range": "± 263",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "workload_render/bumpalo",
+            "value": 10932,
+            "range": "± 500",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "workload_render/system_malloc",
+            "value": 260127,
+            "range": "± 2238",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "workload_particles/framealloc",
+            "value": 108860,
+            "range": "± 2643",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "workload_particles/bumpalo",
+            "value": 81668,
+            "range": "± 261",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "workload_particles/system_malloc",
+            "value": 1418784,
+            "range": "± 31316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "stress_100k_tiny/framealloc",
+            "value": 173107,
+            "range": "± 859",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "stress_100k_tiny/bumpalo",
+            "value": 103788,
+            "range": "± 359",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "stress_100k_tiny/system_malloc",
+            "value": 2729848,
+            "range": "± 83011",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "frame_lifecycle/empty_frame",
+            "value": 15,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "frame_lifecycle/light_frame_100",
+            "value": 238,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "frame_lifecycle/heavy_frame_10000",
+            "value": 21794,
+            "range": "± 58",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "frame_lifecycle/bumpalo_reset_light",
+            "value": 155,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "frame_lifecycle/bumpalo_reset_heavy",
+            "value": 18118,
+            "range": "± 289",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "alloc_write_1000x256B/framealloc",
+            "value": 5848,
+            "range": "± 7",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "alloc_write_1000x256B/bumpalo",
+            "value": 5323,
+            "range": "± 23",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "alloc_write_1000x256B/system_malloc",
+            "value": 33993,
+            "range": "± 96",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "multithreaded/framealloc/2",
+            "value": 137238,
+            "range": "± 2090",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "multithreaded/system_malloc/2",
+            "value": 379771,
+            "range": "± 6238",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "multithreaded/framealloc/4",
+            "value": 216325,
+            "range": "± 2004",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "multithreaded/system_malloc/4",
+            "value": 671217,
+            "range": "± 5173",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "multithreaded/framealloc/8",
+            "value": 429242,
+            "range": "± 9677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "multithreaded/system_malloc/8",
+            "value": 1443703,
+            "range": "± 27082",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "alignment_stress/framealloc_mixed",
+            "value": 6762,
+            "range": "± 23",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "alignment_stress/bumpalo_mixed",
+            "value": 8827,
+            "range": "± 12",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "alloc_write_1000x256B/framealloc_default",
+            "value": 741751,
+            "range": "± 4918",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "alloc_write_1000x256B/framealloc_minimal",
+            "value": 741955,
+            "range": "± 1984",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "alloc_write_1000x256B/framealloc_prefetch",
+            "value": 741624,
+            "range": "± 1020",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "batch_vs_individual_1000x64B/individual_allocs",
+            "value": 2507,
+            "range": "± 9",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "batch_vs_individual_1000x64B/batch_alloc",
+            "value": 19,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "batch_vs_individual_1000x64B/small_batch_8x125",
+            "value": 216,
+            "range": "± 1",
             "unit": "ns/iter"
           },
           {
